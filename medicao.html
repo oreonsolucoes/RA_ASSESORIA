@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório de Medição — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .controles { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:22px; }
+    .campo-c label { display:block; font-size:.78rem; font-weight:600; color:var(--texto-suave); margin-bottom:5px; }
+    .campo-c select, .campo-c input { padding:9px 12px; border:1px solid var(--borda); border-radius:8px; font-family:'Inter'; font-size:.9rem; background:#fff; }
+
+    .relatorio { background:#fff; border:1px solid var(--borda); border-radius:12px; padding:30px; }
+    .rel-cab { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid var(--tinta); padding-bottom:16px; margin-bottom:20px; }
+    .rel-cab .rtit { font-family:'Archivo'; font-size:1.3rem; font-weight:800; color:var(--tinta); }
+    .rel-cab .rsub { font-size:.85rem; color:var(--texto-suave); margin-top:3px; }
+    .rel-cab .rperiodo { text-align:right; font-size:.82rem; color:var(--texto-suave); }
+
+    .bloco-emp { margin-bottom:26px; }
+    .bloco-emp h3 { font-size:1rem; color:var(--tinta); margin-bottom:4px; }
+    .bloco-emp .solic { font-size:.8rem; color:var(--texto-suave); margin-bottom:10px; }
+    .tab-serv { width:100%; border-collapse:collapse; }
+    .tab-serv th { text-align:left; font-size:.74rem; text-transform:uppercase; letter-spacing:.3px; color:var(--texto-suave); padding:7px 10px; border-bottom:1px solid var(--borda); }
+    .tab-serv td { padding:8px 10px; font-size:.86rem; border-bottom:1px solid #f0f2f5; }
+    .tab-serv .vlr { text-align:right; font-variant-numeric:tabular-nums; }
+    .tab-serv .subtot td { font-weight:700; color:var(--tinta); border-top:2px solid var(--borda); background:#fafbfc; }
+
+    .rel-total { display:flex; justify-content:flex-end; gap:40px; padding-top:16px; border-top:2px solid var(--tinta); margin-top:10px; }
+    .rel-total .lbl { font-size:.9rem; color:var(--texto-suave); }
+    .rel-total .val { font-family:'Archivo'; font-size:1.4rem; font-weight:800; color:var(--st-ok-fg); }
+
+    .rodape-pgto { margin-top:24px; font-size:.82rem; color:var(--texto-suave); border-top:1px solid var(--borda); padding-top:14px; }
+    .vazio { text-align:center; padding:44px; color:var(--texto-suave); }
+    @media print {
+      .lateral, .controles, .no-print { display:none !important; }
+      .conteudo { margin:0; padding:0; } .relatorio { border:0; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="topo no-print">
+      <div class="eyebrow">Financeiro</div>
+      <h1>Relatório de medição</h1>
+      <p>Consolida os serviços do período por empresa. Fechamento padrão no dia 30.</p>
+    </div>
+
+    <div class="controles no-print">
+      <div class="campo-c">
+        <label>Mês de referência</label>
+        <input type="month" id="mesRef" />
+      </div>
+      <div class="campo-c">
+        <label>Empresa</label>
+        <select id="filtroEmp"><option value="">Todas</option></select>
+      </div>
+      <div class="campo-c">
+        <label>Considerar</label>
+        <select id="filtroStatus">
+          <option value="todos">Todos os serviços</option>
+          <option value="a_faturar">Só a faturar</option>
+          <option value="faturado">Só faturado</option>
+          <option value="pago">Só pago</option>
+        </select>
+      </div>
+      <button class="btn btn-primario" id="btnGerar">Gerar</button>
+      <button class="btn btn-marca" id="btnImprimir">Imprimir / PDF</button>
+    </div>
+
+    <div id="saida"></div>
+  </main>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { collection, getDocs, query } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { moedaBR, condicaoPorId } from "./financeiro-fluxo.js";
+import { montarMenu } from "./menu.js";
+
+montarMenu("financeiro");
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+  init();
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+let todos = [];
+
+async function init() {
+  // mês atual como padrão
+  const hoje = new Date();
+  document.getElementById("mesRef").value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}`;
+
+  const snap = await getDocs(query(collection(db,"documentos")));
+  todos = snap.docs.map(d => {
+    const x = d.data();
+    const emis = x.dataEmissao?.toDate?.() ?? new Date(x.dataEmissao);
+    return {
+      empresa: x.empresaRazao || "—",
+      funcionario: x.funcionarioNome || "",
+      servico: x.documento || x.tipo || "—",
+      valor: Number(x.finValor)||0,
+      condicao: x.finCondicao || "",
+      etapa: x.finEtapa || "valor",
+      emissao: emis,
+    };
+  });
+
+  const empresas = [...new Set(todos.map(t=>t.empresa))].sort();
+  const fe = document.getElementById("filtroEmp");
+  empresas.forEach(e => { const o=document.createElement("option"); o.value=e; o.textContent=e; fe.appendChild(o); });
+
+  gerar();
+}
+
+function gerar() {
+  const mesRef = document.getElementById("mesRef").value; // AAAA-MM
+  const fEmp = document.getElementById("filtroEmp").value;
+  const fStatus = document.getElementById("filtroStatus").value;
+  const saida = document.getElementById("saida");
+
+  let [ano, mes] = mesRef.split("-").map(Number);
+
+  // filtra pelo mês de emissão (período do 1º ao último documento do mês)
+  let lista = todos.filter(t => {
+    const noMes = t.emissao.getFullYear()===ano && (t.emissao.getMonth()+1)===mes;
+    const emp = !fEmp || t.empresa===fEmp;
+    const st = fStatus==="todos" || t.etapa===fStatus;
+    return noMes && emp && st && t.valor > 0;
+  });
+
+  if (!lista.length) {
+    saida.innerHTML = `<div class="relatorio"><div class="vazio">Nenhum serviço com valor lançado neste período.<br><small>Lance os valores no Módulo Financeiro primeiro.</small></div></div>`;
+    return;
+  }
+
+  // agrupa por empresa
+  const porEmp = {};
+  lista.forEach(t => { (porEmp[t.empresa] ||= []).push(t); });
+
+  const nomesMes = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  const datas = lista.map(t=>t.emissao).sort((a,b)=>a-b);
+  const periodo = `${datas[0].toLocaleDateString("pt-BR")} a ${datas[datas.length-1].toLocaleDateString("pt-BR")}`;
+  const totalGeral = lista.reduce((s,t)=>s+t.valor,0);
+
+  let html = `<div class="relatorio">
+    <div class="rel-cab">
+      <div>
+        <div class="rtit">Relatório de Medição</div>
+        <div class="rsub">Richard Consultoria em Segurança do Trabalho</div>
+      </div>
+      <div class="rperiodo">
+        Referência: ${nomesMes[mes-1]}/${ano}<br>
+        Período: ${periodo}
+      </div>
+    </div>`;
+
+  for (const [emp, servs] of Object.entries(porEmp)) {
+    const subtotal = servs.reduce((s,t)=>s+t.valor,0);
+    html += `<div class="bloco-emp">
+      <h3>${emp}</h3>
+      <div class="solic">Solicitante: ${emp}</div>
+      <table class="tab-serv">
+        <thead><tr><th>Serviço</th><th>Funcionário</th><th>Data</th><th>Condição</th><th class="vlr">Valor</th></tr></thead>
+        <tbody>
+          ${servs.map(s => `<tr>
+            <td>${s.servico}</td><td>${s.funcionario||"—"}</td>
+            <td>${s.emissao.toLocaleDateString("pt-BR")}</td>
+            <td>${condicaoPorId(s.condicao)?.label || "—"}</td>
+            <td class="vlr">${moedaBR(s.valor)}</td>
+          </tr>`).join("")}
+          <tr class="subtot"><td colspan="4">Subtotal ${emp}</td><td class="vlr">${moedaBR(subtotal)}</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  html += `<div class="rel-total"><span class="lbl">Total geral do período</span><span class="val">${moedaBR(totalGeral)}</span></div>
+    <div class="rodape-pgto">
+      <strong>Dados para pagamento:</strong> (configure em config-empresa.js)<br>
+      Documento gerado em ${new Date().toLocaleDateString("pt-BR")} · Fechamento mensal dia 30.
+    </div>
+  </div>`;
+
+  saida.innerHTML = html;
+}
+
+document.getElementById("btnGerar").addEventListener("click", gerar);
+document.getElementById("btnImprimir").addEventListener("click", () => window.print());
+["mesRef","filtroEmp","filtroStatus"].forEach(id =>
+  document.getElementById(id).addEventListener("change", gerar));
+</script>
+</body>
+</html>

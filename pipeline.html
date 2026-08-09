@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acompanhamento — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .board { display:flex; gap:14px; overflow-x:auto; padding-bottom:12px; align-items:flex-start; }
+    .coluna { flex:0 0 260px; background:#eef0f4; border-radius:12px; padding:12px; min-height:200px; }
+    .coluna-topo { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:0 4px; }
+    .coluna-topo .t { display:flex; align-items:center; gap:8px; font-weight:700; font-size:.88rem; color:var(--tinta); }
+    .coluna-topo .dot { width:9px; height:9px; border-radius:50%; }
+    .coluna-topo .n { background:#fff; border-radius:20px; padding:1px 9px; font-size:.75rem; font-weight:600; color:var(--texto-suave); }
+    .coluna-desc { font-size:.72rem; color:var(--texto-suave); margin-bottom:10px; padding:0 4px; }
+
+    .card {
+      background:#fff; border:1px solid var(--borda); border-radius:9px;
+      padding:11px 12px; margin-bottom:9px; cursor:grab; box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
+    .card:active { cursor:grabbing; }
+    .card.arrastando { opacity:.4; }
+    .card .nome { font-weight:600; font-size:.85rem; color:var(--tinta); margin-bottom:3px; }
+    .card .emp { font-size:.76rem; color:var(--texto-suave); margin-bottom:6px; }
+    .card .linha { display:flex; align-items:center; justify-content:space-between; }
+    .card .norma { font-size:.72rem; font-weight:600; background:#eef1f6; color:var(--tinta-2); padding:2px 7px; border-radius:5px; }
+    .card .venc { font-size:.72rem; color:var(--texto-suave); }
+    .card .venc.venceu { color:var(--st-vencido-fg); font-weight:600; }
+    .card .atraso { margin-top:7px; font-size:.7rem; background:var(--st-vencido-bg); color:var(--st-vencido-fg); padding:3px 7px; border-radius:5px; display:inline-block; }
+
+    .coluna.dragover { background:#e2e7f0; outline:2px dashed var(--tinta-2); outline-offset:-4px; }
+    .vazia { text-align:center; color:var(--texto-suave); font-size:.78rem; padding:20px 0; }
+    .legenda { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px; font-size:.8rem; color:var(--texto-suave); }
+    .legenda span { display:flex; align-items:center; gap:6px; }
+    .legenda .b { width:10px; height:10px; border-radius:3px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo" style="max-width:none;">
+    <div class="topo">
+      <div class="eyebrow">Acompanhamento</div>
+      <h1>Pipeline de renovação</h1>
+      <p>Certificados a 30 dias do vencimento entram aqui. Arraste os cartões conforme avança a negociação.</p>
+    </div>
+
+    <div class="legenda">
+      <span><span class="b" style="background:var(--st-vencido-forte)"></span> Atrasado na etapa</span>
+      <span><span class="b" style="background:var(--st-breve-forte)"></span> Vence em breve</span>
+      <span><span class="b" style="background:var(--st-vencido-forte)"></span> Já vencido</span>
+    </div>
+
+    <div class="board" id="board"></div>
+  </main>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { collection, getDocs, query, orderBy, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { ETAPAS, ETAPA_INICIAL, etapaPorId } from "./etapas.js";
+import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+montarMenu("pipeline");
+    iniciarAlertaVencimento(db);
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+  carregar();
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+let cartoes = [];
+
+function diasAte(data) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  return Math.ceil((data - hoje) / 86400000);
+}
+
+async function carregar() {
+  const snap = await getDocs(query(collection(db,"documentos"), orderBy("dataVencimento","asc")));
+  const hoje = new Date();
+  cartoes = [];
+  snap.docs.forEach(d => {
+    const x = d.data();
+    const venc = x.dataVencimento?.toDate?.() ?? new Date(x.dataVencimento);
+    const dias = diasAte(venc);
+    // entra no pipeline se vence em <=30 dias (ou já venceu) e não foi renovado
+    if (dias <= 30 && !x.renovado) {
+      cartoes.push({
+        id: d.id,
+        nome: x.funcionarioNome || "—",
+        empresa: x.empresaRazao || "—",
+        norma: (x.documento || x.tipo || "").split("—")[0].trim(),
+        vencimento: venc,
+        dias,
+        etapa: x.pipelineEtapa || ETAPA_INICIAL,
+        // quando entrou na etapa atual (para calcular atraso)
+        desdeEtapa: x.pipelineDesde?.toDate?.() ?? hoje,
+      });
+    }
+  });
+  render();
+}
+
+function render() {
+  const board = document.getElementById("board");
+  board.innerHTML = ETAPAS.map(et => {
+    const naEtapa = cartoes.filter(c => c.etapa === et.id);
+    return `
+      <div class="coluna" data-etapa="${et.id}">
+        <div class="coluna-topo">
+          <div class="t"><span class="dot" style="background:${et.cor}"></span>${et.titulo}</div>
+          <span class="n">${naEtapa.length}</span>
+        </div>
+        <div class="coluna-desc">${et.desc} · prazo ${et.prazoDias}d</div>
+        <div class="lista" data-etapa="${et.id}">
+          ${naEtapa.length ? naEtapa.map(c => cardHTML(c, et)).join("") : '<div class="vazia">—</div>'}
+        </div>
+      </div>`;
+  }).join("");
+  ligarDragDrop();
+}
+
+function cardHTML(c, et) {
+  const diasNaEtapa = Math.floor((new Date() - c.desdeEtapa)/86400000);
+  const atrasado = diasNaEtapa > et.prazoDias;
+  const vencClasse = c.dias < 0 ? "venceu" : "";
+  const vencTxt = c.dias < 0 ? `Venceu há ${Math.abs(c.dias)}d` : `Vence em ${c.dias}d`;
+  return `
+    <div class="card" draggable="true" data-id="${c.id}">
+      <div class="nome">${c.nome}</div>
+      <div class="emp">${c.empresa}</div>
+      <div class="linha">
+        <span class="norma">${c.norma}</span>
+        <span class="venc ${vencClasse}">${vencTxt}</span>
+      </div>
+      ${atrasado ? `<div class="atraso">⏱ ${diasNaEtapa}d nesta etapa (prazo ${et.prazoDias}d)</div>` : ""}
+    </div>`;
+}
+
+function ligarDragDrop() {
+  let arrastado = null;
+  document.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("dragstart", () => { arrastado = card; card.classList.add("arrastando"); });
+    card.addEventListener("dragend", () => { card.classList.remove("arrastando"); arrastado = null; });
+  });
+  document.querySelectorAll(".coluna").forEach(col => {
+    col.addEventListener("dragover", e => { e.preventDefault(); col.classList.add("dragover"); });
+    col.addEventListener("dragleave", () => col.classList.remove("dragover"));
+    col.addEventListener("drop", async e => {
+      e.preventDefault(); col.classList.remove("dragover");
+      if (!arrastado) return;
+      const id = arrastado.dataset.id;
+      const novaEtapa = col.dataset.etapa;
+      const cartao = cartoes.find(c => c.id === id);
+      if (!cartao || cartao.etapa === novaEtapa) return;
+      cartao.etapa = novaEtapa;
+      cartao.desdeEtapa = new Date();
+      // Se moveu para "emissão" concluída, poderia marcar renovado — deixamos manual por ora
+      try {
+        await updateDoc(doc(db,"documentos",id), {
+          pipelineEtapa: novaEtapa,
+          pipelineDesde: Timestamp.now(),
+        });
+      } catch(err) { console.error(err); alert("Erro ao salvar: "+err.message); }
+      render();
+    });
+  });
+}
+</script>
+</body>
+</html>

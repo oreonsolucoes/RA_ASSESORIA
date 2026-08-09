@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Empresas — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .grid2 { display:grid; grid-template-columns: 340px 1fr; gap:22px; align-items:start; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns:1fr; } }
+    .campo { margin-bottom:16px; }
+    .campo label { display:block; font-size:.83rem; font-weight:600; margin-bottom:7px; }
+    .campo input { width:100%; padding:11px 13px; border:1px solid var(--borda); border-radius:9px; font-family:'Inter'; font-size:.95rem; }
+    .campo input:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+    .campo input.erro-input { border-color:var(--st-vencido-forte); }
+    .dica { font-size:.78rem; margin-top:6px; }
+    .dica.ok { color:var(--st-ok-fg); }
+    .dica.err { color:var(--st-vencido-fg); }
+    .msg { margin-top:8px; font-size:.88rem; padding:11px 14px; border-radius:9px; display:none; }
+    .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { text-align:left; padding:12px 15px; font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    tbody td { padding:13px 15px; font-size:.9rem; border-bottom:1px solid var(--borda); }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:#fafbfc; }
+    .cnpj-cell { font-variant-numeric:tabular-nums; color:var(--texto-suave); }
+    .razao { font-weight:600; color:var(--tinta); }
+    .acoes { text-align:right; }
+    .acoes button { border:0; background:transparent; padding:6px; border-radius:6px; cursor:pointer; color:var(--texto-suave); }
+    .acoes button:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .acoes svg { width:16px; height:16px; display:block; }
+    .vazio { text-align:center; padding:40px; color:var(--texto-suave); }
+    .contador { font-size:.85rem; color:var(--texto-suave); margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="lateral">
+      <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+    </aside>
+    <main class="conteudo">
+      <div class="topo">
+        <div class="eyebrow">Cadastros</div>
+        <h1>Empresas</h1>
+        <p>Cadastre cada empresa uma vez. O CNPJ identifica e evita duplicidade.</p>
+      </div>
+      <div class="grid2">
+        <div class="cartao" style="padding:22px;">
+          <h3 style="font-size:1rem; color:var(--tinta); margin-bottom:16px;">Nova empresa</h3>
+          <div class="campo">
+            <label for="cnpj">CNPJ</label>
+            <input type="text" id="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" />
+            <div class="dica" id="dicaCnpj"></div>
+          </div>
+          <div class="campo">
+            <label for="razao">Razão social</label>
+            <input type="text" id="razao" placeholder="Ex.: Guedes Engenharia e Topografia Ltda" />
+          </div>
+          <button class="btn btn-primario" id="btnSalvar" style="width:100%; justify-content:center;">Cadastrar empresa</button>
+          <div class="msg" id="msg"></div>
+        </div>
+        <div class="cartao" style="padding:22px;">
+          <div class="contador" id="contador">—</div>
+          <table>
+            <thead><tr><th>Razão social</th><th>CNPJ</th><th></th></tr></thead>
+            <tbody id="corpo"><tr><td colspan="3" class="vazio">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { validarCNPJ, formatarCNPJ, apenasDigitos } from "./documento-br.js";
+    import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+    montarMenu("empresas");
+    iniciarAlertaVencimento(db);
+
+    onAuthStateChanged(auth, (u) => {
+      if (!u) { location.href="index.html"; return; }
+      document.getElementById("userEmail").textContent = u.email;
+      listar();
+    });
+    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+    const inCnpj = document.getElementById("cnpj");
+    const inRazao = document.getElementById("razao");
+    const dicaCnpj = document.getElementById("dicaCnpj");
+    const btn = document.getElementById("btnSalvar");
+    const msg = document.getElementById("msg");
+
+    // Máscara + validação ao vivo
+    inCnpj.addEventListener("input", () => {
+      inCnpj.value = formatarCNPJ(inCnpj.value);
+      const dig = apenasDigitos(inCnpj.value);
+      dicaCnpj.textContent = ""; dicaCnpj.className = "dica"; inCnpj.classList.remove("erro-input");
+      if (dig.length === 14) {
+        if (validarCNPJ(dig)) { dicaCnpj.textContent = "✓ CNPJ válido"; dicaCnpj.className = "dica ok"; }
+        else { dicaCnpj.textContent = "✗ CNPJ inválido — confira os números"; dicaCnpj.className = "dica err"; inCnpj.classList.add("erro-input"); }
+      }
+    });
+
+    function mostrar(t, tipo) { msg.textContent = t; msg.className = "msg " + tipo; }
+
+    async function salvar() {
+      const razao = inRazao.value.trim();
+      const dig = apenasDigitos(inCnpj.value);
+      if (!razao) { mostrar("Informe a razão social.", "err"); return; }
+      if (!validarCNPJ(dig)) { mostrar("CNPJ inválido. Verifique antes de salvar.", "err"); return; }
+
+      btn.disabled = true; btn.textContent = "Salvando...";
+      try {
+        const ref = doc(db, "empresas", dig); // CNPJ é o ID -> impede duplicata
+        const existe = await getDoc(ref);
+        if (existe.exists()) { mostrar("Já existe uma empresa com este CNPJ.", "err"); return; }
+        await setDoc(ref, {
+          cnpj: dig,
+          cnpjFmt: formatarCNPJ(dig),
+          razaoSocial: razao,
+          criadoEm: Timestamp.now(),
+          criadoPor: auth.currentUser?.email ?? null,
+        });
+        mostrar("Empresa cadastrada!", "ok");
+        inCnpj.value=""; inRazao.value=""; dicaCnpj.textContent="";
+        listar();
+      } catch (e) {
+        console.error(e); mostrar("Erro ao salvar: " + e.message, "err");
+      } finally {
+        btn.disabled = false; btn.textContent = "Cadastrar empresa";
+      }
+    }
+    btn.addEventListener("click", salvar);
+
+    async function listar() {
+      const corpo = document.getElementById("corpo");
+      try {
+        const snap = await getDocs(query(collection(db, "empresas"), orderBy("razaoSocial")));
+        const del = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>';
+        document.getElementById("contador").textContent = `${snap.size} empresa(s) cadastrada(s)`;
+        if (snap.empty) { corpo.innerHTML = `<tr><td colspan="3" class="vazio">Nenhuma empresa ainda.</td></tr>`; return; }
+        corpo.innerHTML = snap.docs.map((d) => {
+          const x = d.data();
+          return `<tr>
+            <td class="razao">${x.razaoSocial}</td>
+            <td class="cnpj-cell">${x.cnpjFmt}</td>
+            <td class="acoes"><button title="Excluir" data-del="${d.id}" data-nome="${x.razaoSocial}">${del}</button></td>
+          </tr>`;
+        }).join("");
+        corpo.querySelectorAll("[data-del]").forEach((b) =>
+          b.addEventListener("click", () => excluir(b.dataset.del, b.dataset.nome)));
+      } catch (e) {
+        console.error(e); corpo.innerHTML = `<tr><td colspan="3" class="vazio">Erro ao carregar.<br><small>${e.message}</small></td></tr>`;
+      }
+    }
+
+    async function excluir(id, nome) {
+      if (!confirm(`Excluir a empresa "${nome}"?\n\nOs registros já lançados para ela não são apagados, mas ela sai da lista.`)) return;
+      try { await deleteDoc(doc(db, "empresas", id)); listar(); }
+      catch (e) { alert("Erro ao excluir: " + e.message); }
+    }
+  </script>
+</body>
+</html>

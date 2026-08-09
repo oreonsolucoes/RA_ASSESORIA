@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipamentos — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .grid2 { display:grid; grid-template-columns:340px 1fr; gap:22px; align-items:start; }
+    @media (max-width:960px){ .grid2{ grid-template-columns:1fr; } }
+    .campo { margin-bottom:15px; }
+    .campo label { display:block; font-size:.82rem; font-weight:600; margin-bottom:6px; }
+    .campo input, .campo select { width:100%; padding:10px 12px; border:1px solid var(--borda); border-radius:8px; font-family:'Inter'; font-size:.92rem; background:#fff; }
+    .campo input:focus, .campo select:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+    .msg { margin-top:8px; font-size:.86rem; padding:10px 13px; border-radius:8px; display:none; }
+    .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+
+    .metricas { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:18px; }
+    .metrica { padding:13px 15px; }
+    .metrica .num { font-family:'Archivo'; font-size:1.5rem; font-weight:800; color:var(--tinta); }
+    .metrica .rot { font-size:.75rem; color:var(--texto-suave); margin-top:3px; }
+
+    table { width:100%; border-collapse:collapse; }
+    thead th { text-align:left; padding:10px 12px; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    tbody td { padding:11px 12px; border-bottom:1px solid var(--borda); font-size:.86rem; }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:#fafbfc; }
+    .eq-nome { font-weight:600; color:var(--tinta); }
+    .eq-serie { font-size:.76rem; color:var(--texto-suave); font-variant-numeric:tabular-nums; }
+    .sit { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:20px; font-size:.75rem; font-weight:600; }
+    .sit::before { content:""; width:7px; height:7px; border-radius:50%; }
+    .cal-alerta { font-size:.72rem; color:var(--st-vencido-fg); font-weight:600; }
+    .cal-ok { font-size:.72rem; color:var(--texto-suave); }
+    .cal-breve { font-size:.72rem; color:var(--st-breve-fg); font-weight:600; }
+    .acoes button { border:0; background:transparent; padding:5px 8px; border-radius:6px; cursor:pointer; font-size:.78rem; font-weight:600; }
+    .btn-locar { background:#e4f0f5; color:#2e7d9a; }
+    .btn-devolver { background:var(--st-ok-bg); color:var(--st-ok-fg); }
+    .btn-del { color:var(--texto-suave); }
+    .btn-del:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .vazio { text-align:center; padding:40px; color:var(--texto-suave); }
+
+    /* modal de locação/checklist */
+    .modal-bg { position:fixed; inset:0; background:rgba(18,35,63,.5); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+    .modal-bg.show { display:flex; }
+    .modal { background:#fff; border-radius:14px; padding:26px; max-width:520px; width:100%; max-height:90vh; overflow-y:auto; }
+    .modal h2 { font-size:1.15rem; color:var(--tinta); margin-bottom:4px; }
+    .modal .sub { font-size:.85rem; color:var(--texto-suave); margin-bottom:18px; }
+    .check-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f0f2f5; }
+    .check-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--tinta); flex-shrink:0; }
+    .check-item label { font-size:.88rem; cursor:pointer; }
+    .modal-acoes { display:flex; gap:10px; margin-top:20px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="topo">
+      <div class="eyebrow">Locação</div>
+      <h1>Equipamentos</h1>
+      <p>Controle de aparelhos, calibração e locação com checklist de entrega e devolução.</p>
+    </div>
+
+    <div class="grid2">
+      <!-- cadastro -->
+      <div class="cartao" style="padding:22px;">
+        <h3 style="font-size:1rem; color:var(--tinta); margin-bottom:16px;">Novo equipamento</h3>
+        <div class="campo">
+          <label for="tipo">Tipo</label>
+          <select id="tipo"></select>
+        </div>
+        <div class="campo" id="campoOutro" style="display:none;">
+          <label for="tipoOutro">Descreva o tipo</label>
+          <input type="text" id="tipoOutro" placeholder="Nome do equipamento" />
+        </div>
+        <div class="campo">
+          <label for="modelo">Modelo / fabricante</label>
+          <input type="text" id="modelo" placeholder="Ex.: Dräger X-am 2500" />
+        </div>
+        <div class="campo">
+          <label for="serie">Número de série</label>
+          <input type="text" id="serie" placeholder="Ex.: SN-12345" />
+        </div>
+        <div class="campo">
+          <label for="calibracao">Validade da calibração</label>
+          <input type="date" id="calibracao" />
+        </div>
+        <button class="btn btn-primario" id="btnSalvar" style="width:100%; justify-content:center;">Cadastrar equipamento</button>
+        <div class="msg" id="msg"></div>
+      </div>
+
+      <!-- lista -->
+      <div>
+        <div class="metricas">
+          <div class="cartao metrica"><div class="num" id="mTotal">0</div><div class="rot">Total</div></div>
+          <div class="cartao metrica"><div class="num" id="mDisp">0</div><div class="rot">Disponíveis</div></div>
+          <div class="cartao metrica"><div class="num" id="mLoc">0</div><div class="rot">Locados</div></div>
+          <div class="cartao metrica"><div class="num" id="mCal">0</div><div class="rot">Calibração a vencer</div></div>
+        </div>
+        <div class="cartao" style="padding:0; overflow:hidden;">
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>Equipamento</th><th>Série</th><th>Calibração</th><th>Situação</th><th></th></tr></thead>
+              <tbody id="corpo"><tr><td colspan="5" class="vazio">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- modal locação/devolução com checklist -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="modalTit">Checklist</h2>
+    <div class="sub" id="modalSub"></div>
+    <div id="modalCampos"></div>
+    <div id="modalCheck"></div>
+    <div class="modal-acoes">
+      <button class="btn btn-primario" id="modalConfirmar" style="flex:1; justify-content:center;">Confirmar</button>
+      <button class="btn" id="modalCancelar" style="background:#eef1f6; color:var(--tinta);">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { SITUACOES, TIPOS_EQUIP, CHECKLIST_PADRAO, situacaoPorId, diasAte } from "./equipamentos-def.js";
+import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+montarMenu("equipamentos");
+    iniciarAlertaVencimento(db);
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+  carregar();
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+// popular tipos
+const selTipo = document.getElementById("tipo");
+selTipo.innerHTML = '<option value="">Selecione...</option>' + TIPOS_EQUIP.map(t=>`<option>${t}</option>`).join("");
+selTipo.addEventListener("change", () => {
+  document.getElementById("campoOutro").style.display = selTipo.value==="Outro" ? "block":"none";
+});
+
+const msg = document.getElementById("msg");
+function mostrar(t, tipo){ msg.textContent=t; msg.className="msg "+tipo; }
+
+document.getElementById("btnSalvar").addEventListener("click", async () => {
+  let tipo = selTipo.value;
+  if (tipo === "Outro") tipo = document.getElementById("tipoOutro").value.trim();
+  const modelo = document.getElementById("modelo").value.trim();
+  const serie = document.getElementById("serie").value.trim();
+  const cal = document.getElementById("calibracao").value;
+  if (!tipo) return mostrar("Selecione ou descreva o tipo.", "err");
+  if (!serie) return mostrar("Informe o número de série.", "err");
+
+  const btn = document.getElementById("btnSalvar");
+  btn.disabled = true; btn.textContent = "Salvando...";
+  try {
+    await addDoc(collection(db,"equipamentos"), {
+      tipo, modelo, serie,
+      calibracao: cal ? Timestamp.fromDate(new Date(cal+"T00:00:00")) : null,
+      situacao: "disponivel",
+      criadoEm: Timestamp.now(),
+    });
+    mostrar("Equipamento cadastrado!", "ok");
+    selTipo.value=""; document.getElementById("modelo").value="";
+    document.getElementById("serie").value=""; document.getElementById("calibracao").value="";
+    document.getElementById("campoOutro").style.display="none";
+    carregar();
+  } catch(e){ console.error(e); mostrar("Erro: "+e.message, "err"); }
+  finally { btn.disabled=false; btn.textContent="Cadastrar equipamento"; }
+});
+
+let equipamentos = [];
+let empresasCadastradas = [];
+
+async function carregar() {
+  // carrega empresas para o seletor de locação
+  const empSnap = await getDocs(query(collection(db,"empresas"), orderBy("razaoSocial")));
+  empresasCadastradas = empSnap.docs.map(d => d.data());
+
+  const snap = await getDocs(query(collection(db,"equipamentos"), orderBy("criadoEm","desc")));
+  equipamentos = snap.docs.map(d => {
+    const x = d.data();
+    return { id:d.id, ...x, calibracao: x.calibracao?.toDate?.() || null };
+  });
+  render();
+}
+
+function render() {
+  const corpo = document.getElementById("corpo");
+  document.getElementById("mTotal").textContent = equipamentos.length;
+  document.getElementById("mDisp").textContent = equipamentos.filter(e=>e.situacao==="disponivel").length;
+  document.getElementById("mLoc").textContent = equipamentos.filter(e=>e.situacao==="locado").length;
+  document.getElementById("mCal").textContent = equipamentos.filter(e=>e.calibracao && diasAte(e.calibracao)<=30 && diasAte(e.calibracao)>=0).length;
+
+  if (!equipamentos.length) { corpo.innerHTML = `<tr><td colspan="5" class="vazio">Nenhum equipamento cadastrado.</td></tr>`; return; }
+
+  corpo.innerHTML = equipamentos.map(e => {
+    const s = situacaoPorId(e.situacao);
+    let calHTML = '<span class="cal-ok">—</span>';
+    if (e.calibracao) {
+      const d = diasAte(e.calibracao);
+      const dataFmt = e.calibracao.toLocaleDateString("pt-BR");
+      if (d < 0) calHTML = `<span class="cal-alerta">Vencida (${dataFmt})</span>`;
+      else if (d <= 30) calHTML = `<span class="cal-breve">Vence em ${d}d (${dataFmt})</span>`;
+      else calHTML = `<span class="cal-ok">${dataFmt}</span>`;
+    }
+    const acao = e.situacao === "disponivel"
+      ? `<button class="btn-locar" data-locar="${e.id}">Locar</button>`
+      : e.situacao === "locado"
+      ? `<button class="btn-devolver" data-devolver="${e.id}">Devolver</button>`
+      : "";
+    return `<tr>
+      <td><div class="eq-nome">${e.tipo}</div><div class="eq-serie">${e.modelo||""}</div></td>
+      <td class="eq-serie">${e.serie}</td>
+      <td>${calHTML}</td>
+      <td><span class="sit" style="background:${s.cor}1a; color:${s.cor}"><span style="width:7px;height:7px;border-radius:50%;background:${s.cor}"></span>${s.label}</span>
+        ${e.locadoPara ? `<div class="eq-serie" style="margin-top:3px">→ ${e.locadoPara}</div>`:""}</td>
+      <td class="acoes">${acao}
+        <button class="btn-del" data-del="${e.id}" title="Excluir">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  corpo.querySelectorAll("[data-locar]").forEach(b=>b.addEventListener("click",()=>abrirLocacao(b.dataset.locar)));
+  corpo.querySelectorAll("[data-devolver]").forEach(b=>b.addEventListener("click",()=>abrirDevolucao(b.dataset.devolver)));
+  corpo.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>excluir(b.dataset.del)));
+}
+
+// ─── Modal ─────────────────────────────────────────────────────────
+const modalBg = document.getElementById("modalBg");
+let modalAcao = null;
+document.getElementById("modalCancelar").addEventListener("click", ()=> modalBg.classList.remove("show"));
+document.getElementById("modalConfirmar").addEventListener("click", ()=> modalAcao && modalAcao());
+
+function checklistHTML() {
+  return CHECKLIST_PADRAO.map((c,i)=>`
+    <div class="check-item">
+      <input type="checkbox" id="chk${i}" checked />
+      <label for="chk${i}">${c}</label>
+    </div>`).join("");
+}
+
+// ─── Assinatura desenhável ─────────────────────────────────────────
+function assinaturaHTML() {
+  return `
+    <div style="margin-top:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <label style="font-size:.8rem;font-weight:600;color:var(--texto);">Assinatura do recebedor</label>
+        <button type="button" id="btnLimparAssin" style="border:0;background:transparent;color:var(--texto-suave);font-size:.78rem;cursor:pointer;text-decoration:underline;">Limpar</button>
+      </div>
+      <canvas id="canvasAssin" width="460" height="150"
+        style="width:100%;height:150px;border:1px solid var(--borda);border-radius:9px;background:#fcfcfd;touch-action:none;cursor:crosshair;"></canvas>
+      <div style="font-size:.75rem;color:var(--texto-suave);margin-top:5px;">Assine com o dedo (celular) ou o mouse.</div>
+    </div>`;
+}
+
+let _assinCanvas = null, _assinTemTraco = false;
+function ativarAssinatura() {
+  const canvas = document.getElementById("canvasAssin");
+  if (!canvas) return;
+  _assinCanvas = canvas; _assinTemTraco = false;
+  const ctx = canvas.getContext("2d");
+  ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#12233f";
+  let desenhando = false;
+
+  // converte coordenadas do evento (mouse/touch) para o sistema do canvas
+  const pos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: (p.clientX - r.left) * (canvas.width / r.width),
+             y: (p.clientY - r.top) * (canvas.height / r.height) };
+  };
+  const iniciar = (e) => { e.preventDefault(); desenhando = true; const {x,y}=pos(e); ctx.beginPath(); ctx.moveTo(x,y); };
+  const mover = (e) => { if(!desenhando) return; e.preventDefault(); const {x,y}=pos(e); ctx.lineTo(x,y); ctx.stroke(); _assinTemTraco=true; };
+  const parar = () => { desenhando = false; };
+
+  canvas.addEventListener("mousedown", iniciar);
+  canvas.addEventListener("mousemove", mover);
+  window.addEventListener("mouseup", parar);
+  canvas.addEventListener("touchstart", iniciar, {passive:false});
+  canvas.addEventListener("touchmove", mover, {passive:false});
+  canvas.addEventListener("touchend", parar);
+
+  document.getElementById("btnLimparAssin")?.addEventListener("click", () => {
+    ctx.clearRect(0,0,canvas.width,canvas.height); _assinTemTraco=false;
+  });
+}
+
+// Devolve a assinatura como dataURL PNG, ou null se não assinou.
+function pegarAssinatura() {
+  if (!_assinCanvas || !_assinTemTraco) return null;
+  return _assinCanvas.toDataURL("image/png");
+}
+
+function abrirLocacao(id) {
+  const eq = equipamentos.find(e=>e.id===id);
+  document.getElementById("modalTit").textContent = "Locar equipamento";
+  document.getElementById("modalSub").textContent = `${eq.tipo} · série ${eq.serie}`;
+
+  if (empresasCadastradas.length === 0) {
+    document.getElementById("modalCampos").innerHTML =
+      `<p style="font-size:.88rem;color:var(--st-vencido-fg);background:var(--st-vencido-bg);padding:11px 14px;border-radius:8px;">
+        Nenhuma empresa cadastrada. Cadastre em "Empresas" antes de locar.</p>`;
+    document.getElementById("modalCheck").innerHTML = "";
+    modalAcao = () => modalBg.classList.remove("show");
+    modalBg.classList.add("show");
+    return;
+  }
+
+  const opcoesEmp = empresasCadastradas
+    .map(e => `<option value="${e.cnpj}" data-razao="${e.razaoSocial}">${e.razaoSocial} (${e.cnpjFmt})</option>`)
+    .join("");
+
+  document.getElementById("modalCampos").innerHTML = `
+    <div class="campo"><label>Locado para (empresa)</label>
+      <select id="mLocadoPara"><option value="">Selecione...</option>${opcoesEmp}</select></div>
+    <div class="campo"><label>Previsão de devolução</label>
+      <input type="date" id="mDevolucao" /></div>
+    <p style="font-size:.8rem;color:var(--texto-suave);margin:14px 0 8px;font-weight:600;">Checklist de entrega:</p>`;
+  document.getElementById("modalCheck").innerHTML = checklistHTML() + assinaturaHTML();
+  ativarAssinatura();
+
+  modalAcao = async () => {
+    const sel = document.getElementById("mLocadoPara");
+    const cnpj = sel.value;
+    if (!cnpj) { alert("Selecione a empresa."); return; }
+    const razao = sel.options[sel.selectedIndex].dataset.razao;
+    const prev = document.getElementById("mDevolucao").value;
+    const assinatura = pegarAssinatura(); // dataURL ou null
+    try {
+      await updateDoc(doc(db,"equipamentos",id), {
+        situacao:"locado",
+        locadoPara: razao,
+        locadoCnpj: cnpj,
+        locadoEm: Timestamp.now(),
+        previsaoDevolucao: prev ? Timestamp.fromDate(new Date(prev+"T00:00:00")) : null,
+        assinaturaEntrega: assinatura,
+      });
+      modalBg.classList.remove("show"); carregar();
+    } catch(e){ alert("Erro: "+e.message); }
+  };
+  modalBg.classList.add("show");
+}
+
+function abrirDevolucao(id) {
+  const eq = equipamentos.find(e=>e.id===id);
+  document.getElementById("modalTit").textContent = "Devolver equipamento";
+  document.getElementById("modalSub").textContent = `${eq.tipo} · série ${eq.serie} · locado para ${eq.locadoPara||"—"}`;
+  document.getElementById("modalCampos").innerHTML = `
+    <p style="font-size:.8rem;color:var(--texto-suave);margin:0 0 8px;font-weight:600;">Checklist de devolução:</p>`;
+  document.getElementById("modalCheck").innerHTML = checklistHTML() + assinaturaHTML();
+  ativarAssinatura();
+  modalAcao = async () => {
+    const assinatura = pegarAssinatura();
+    try {
+      await updateDoc(doc(db,"equipamentos",id), {
+        situacao:"disponivel", locadoPara:null, locadoCnpj:null, locadoEm:null, previsaoDevolucao:null,
+        devolvidoEm: Timestamp.now(),
+        assinaturaDevolucao: assinatura,
+      });
+      modalBg.classList.remove("show"); carregar();
+    } catch(e){ alert("Erro: "+e.message); }
+  };
+  modalBg.classList.add("show");
+}
+
+async function excluir(id) {
+  if (!confirm("Excluir este equipamento?")) return;
+  try { await deleteDoc(doc(db,"equipamentos",id)); carregar(); }
+  catch(e){ alert("Erro: "+e.message); }
+}
+</script>
+</body>
+</html>

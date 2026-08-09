@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    body { display:grid; place-items:center; min-height:100vh; background:
+      radial-gradient(1200px 600px at 20% -10%, #1c3157 0%, transparent 60%),
+      linear-gradient(160deg, #12233f 0%, #0c1830 100%); }
+    .login { width:100%; max-width:400px; padding:24px; }
+    .marca-top { text-align:center; margin-bottom:26px; color:#fff; }
+    .marca-top .selo { width:56px; height:56px; border-radius:14px; margin:0 auto 14px;
+      background:linear-gradient(135deg, var(--marca), #8f701c); display:grid; place-items:center;
+      font-family:'Archivo'; font-weight:800; font-size:1.5rem; color:#fff; }
+    .marca-top h1 { font-size:1.3rem; font-weight:700; }
+    .marca-top p { font-size:.8rem; color:#8695ad; letter-spacing:.5px; margin-top:2px; }
+
+    .caixa { background:#fff; border-radius:16px; padding:32px 30px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    .caixa h2 { font-size:1.05rem; color:var(--tinta); text-align:center; margin-bottom:22px; }
+    .campo { margin-bottom:15px; }
+    .campo label { display:block; font-size:.82rem; font-weight:600; color:var(--texto); margin-bottom:6px; }
+    .campo input { width:100%; padding:12px 13px; border:1px solid var(--borda); border-radius:9px; font-family:'Inter'; font-size:.95rem; }
+    .campo input:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.09); }
+    .caixa button { width:100%; margin-top:8px; padding:13px; justify-content:center; }
+    .erro { background:var(--st-vencido-bg); color:var(--st-vencido-fg); font-size:.85rem; padding:11px 13px; border-radius:9px; margin-top:15px; display:none; }
+    .erro.show { display:block; }
+  </style>
+</head>
+<body>
+  <div class="login">
+    <div class="marca-top">
+      <div class="selo">RA</div>
+      <h1>Richard Assessoria</h1>
+      <p>SEGURANÇA DO TRABALHO</p>
+    </div>
+    <div class="caixa">
+      <h2>Acesso ao sistema</h2>
+      <div class="campo">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" autocomplete="username" placeholder="seu@email.com" />
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primario" id="btnEntrar">Entrar</button>
+      <div class="erro" id="msgErro"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth } from "./firebase-config.js";
+    import { signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserSessionPersistence }
+      from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+
+    const email = document.getElementById("email");
+    const senha = document.getElementById("senha");
+    const btn = document.getElementById("btnEntrar");
+    const msgErro = document.getElementById("msgErro");
+
+    onAuthStateChanged(auth, (user) => { if (user) location.href = "dashboard.html"; });
+
+    function mostrarErro(t) { msgErro.textContent = t; msgErro.classList.add("show"); }
+
+    async function entrar() {
+      msgErro.classList.remove("show");
+      if (!email.value || !senha.value) { mostrarErro("Preencha e-mail e senha."); return; }
+      btn.disabled = true; btn.textContent = "Entrando...";
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+        await signInWithEmailAndPassword(auth, email.value.trim(), senha.value);
+      } catch (err) {
+        const mapa = {
+          "auth/invalid-email":"E-mail inválido.",
+          "auth/invalid-credential":"E-mail ou senha incorretos.",
+          "auth/user-not-found":"Usuário não encontrado.",
+          "auth/wrong-password":"Senha incorreta.",
+          "auth/too-many-requests":"Muitas tentativas. Tente mais tarde.",
+        };
+        mostrarErro(mapa[err.code] || "Não foi possível entrar. Tente novamente.");
+        console.error(err);
+        btn.disabled = false; btn.textContent = "Entrar";
+      }
+    }
+    btn.addEventListener("click", entrar);
+    [email, senha].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key==="Enter") entrar(); }));
+  </script>
+</body>
+</html>

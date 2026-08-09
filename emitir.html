@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emitir certificado — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    .form-wrap { max-width: 660px; }
+    .campo { margin-bottom: 18px; }
+    .campo label { display:block; font-size:.83rem; font-weight:600; margin-bottom:7px; }
+    .campo input, .campo select {
+      width:100%; padding:11px 13px; border:1px solid var(--borda); border-radius:9px;
+      font-family:'Inter'; font-size:.95rem; background:#fff; color:var(--texto);
+    }
+    .campo input:focus, .campo select:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+    .lado { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:560px){ .lado{ grid-template-columns:1fr; } }
+    .ajuda { font-size:.8rem; color:var(--texto-suave); margin-top:6px; }
+    .aviso { font-size:.85rem; padding:11px 14px; border-radius:9px; margin-bottom:14px; display:none; }
+    .aviso.show { display:block; }
+    .aviso.info { background:var(--st-breve-bg); color:var(--st-breve-fg); }
+    .msg { margin-top:16px; font-size:.9rem; padding:12px 15px; border-radius:9px; display:none; }
+    .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+    .assinatura-box { border:1px dashed var(--borda); border-radius:9px; padding:14px; margin-top:8px; }
+    .assinatura-preview { max-height:60px; margin-top:10px; display:none; }
+    .assinatura-preview.show { display:block; }
+    .radio-linha { display:flex; gap:18px; margin-top:4px; }
+    .radio-linha label { display:flex; align-items:center; gap:7px; font-weight:500; font-size:.9rem; cursor:pointer; }
+    .radio-linha input { width:auto; }
+    .divisor { height:1px; background:var(--borda); margin:22px 0; }
+    .secao-tit { font-size:.78rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--texto-suave); margin-bottom:14px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="lateral">
+      <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+    </aside>
+
+    <main class="conteudo">
+      <div class="topo">
+        <div class="eyebrow">Certificados</div>
+        <h1>Emitir certificado</h1>
+        <p>Gera o PDF no padrão da Richard e registra o vencimento no painel, de uma vez.</p>
+      </div>
+
+      <div class="cartao form-wrap" style="padding:26px;">
+        <div class="aviso info" id="avisoFalta">Cadastre empresas e funcionários antes de emitir certificados.</div>
+
+        <div class="secao-tit">Quem</div>
+        <div class="campo">
+          <label for="empresa">Empresa</label>
+          <select id="empresa"><option value="">Selecione...</option></select>
+        </div>
+        <div class="campo">
+          <label for="funcionario">Funcionário</label>
+          <select id="funcionario"><option value="">Selecione a empresa primeiro</option></select>
+          <div class="ajuda" id="ajudaFunc">Mostra apenas funcionários da empresa selecionada.</div>
+        </div>
+
+        <div class="divisor"></div>
+        <div class="secao-tit">Treinamento</div>
+        <div class="campo">
+          <label for="tipo">Norma / treinamento</label>
+          <select id="tipo"><option value="">Selecione...</option></select>
+          <div class="ajuda" id="ajudaConteudo"></div>
+        </div>
+        <div class="lado">
+          <div class="campo">
+            <label for="dataTreino">Data do treinamento</label>
+            <input type="date" id="dataTreino" />
+          </div>
+          <div class="campo">
+            <label for="carga">Carga horária</label>
+            <input type="text" id="carga" placeholder="Ex.: 8 horas" />
+          </div>
+        </div>
+        <div class="campo">
+          <label for="endereco">Local / endereço (opcional)</label>
+          <input type="text" id="endereco" placeholder="Ex.: Rua Coronel Jose Eusebio, 95 - São Paulo/SP" />
+        </div>
+
+        <div class="divisor"></div>
+        <div class="secao-tit">Assinatura do instrutor</div>
+        <div class="radio-linha">
+          <label><input type="radio" name="assin" value="branco" checked /> Deixar em branco (assinar no Gov.br)</label>
+          <label><input type="radio" name="assin" value="fixa" id="optFixa" /> Usar assinatura do instrutor</label>
+        </div>
+        <div class="assinatura-box" id="boxAssin" style="display:none;">
+          <img class="assinatura-preview show" id="previewAssin" alt="Prévia da assinatura" />
+          <div class="ajuda" id="ajudaAssin"></div>
+        </div>
+
+        <div class="divisor"></div>
+        <button class="btn btn-primario" id="btnGerar" style="width:100%; justify-content:center;">Gerar certificado e registrar vencimento</button>
+        <div class="msg" id="msg"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { VIGENCIAS, somarMeses } from "./vigencias.js";
+    import { CONTEUDOS } from "./conteudos.js";
+    import { gerarCertificado, carregarImagemComoDataUrl } from "./certificado.js";
+    import { ASSINATURA_INSTRUTOR_URL, LOGO_URL } from "./config-empresa.js";
+    import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+    montarMenu("emitir");
+    iniciarAlertaVencimento(db);
+
+    onAuthStateChanged(auth, (u) => {
+      if (!u) { location.href="index.html"; return; }
+      document.getElementById("userEmail").textContent = u.email;
+      iniciar();
+    });
+    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+    const selEmpresa = document.getElementById("empresa");
+    const selFunc = document.getElementById("funcionario");
+    const selTipo = document.getElementById("tipo");
+    const inData = document.getElementById("dataTreino");
+    const inCarga = document.getElementById("carga");
+    const inEndereco = document.getElementById("endereco");
+    const btn = document.getElementById("btnGerar");
+    const msg = document.getElementById("msg");
+    const boxAssin = document.getElementById("boxAssin");
+    const previewAssin = document.getElementById("previewAssin");
+
+    let empresasMap = {}, funcTodos = [];
+
+    // Configura a opção de assinatura fixa conforme a URL da config
+    const optFixa = document.getElementById("optFixa");
+    const ajudaAssin = document.getElementById("ajudaAssin");
+    if (ASSINATURA_INSTRUTOR_URL) {
+      previewAssin.src = ASSINATURA_INSTRUTOR_URL;
+      ajudaAssin.textContent = "Imagem carregada do link configurado.";
+    } else {
+      // Sem URL configurada: desabilita a opção e explica
+      optFixa.disabled = true;
+      optFixa.closest("label").style.opacity = ".5";
+      ajudaAssin.textContent = "Nenhuma assinatura configurada. Defina a URL em config-empresa.js.";
+    }
+
+    // Só treinamentos de funcionário geram certificado
+    for (const [chave, info] of Object.entries(VIGENCIAS)) {
+      if (info.escopo !== "funcionario") continue;
+      const o = document.createElement("option");
+      o.value = chave; o.textContent = info.label;
+      selTipo.appendChild(o);
+    }
+
+    async function iniciar() {
+      const [es, fs] = await Promise.all([
+        getDocs(query(collection(db,"empresas"), orderBy("razaoSocial"))),
+        getDocs(collection(db,"funcionarios")),
+      ]);
+      empresasMap = {};
+      es.forEach((d)=>{ const x=d.data(); empresasMap[x.cnpj]=x;
+        const o=document.createElement("option"); o.value=x.cnpj; o.textContent=`${x.razaoSocial} (${x.cnpjFmt})`; selEmpresa.appendChild(o); });
+      funcTodos = fs.docs.map((d)=>d.data());
+      document.getElementById("avisoFalta").classList.toggle("show", es.empty || fs.empty);
+    }
+
+    selEmpresa.addEventListener("change", () => {
+      const cnpj = selEmpresa.value;
+      const lista = funcTodos.filter((f)=>f.empresaCnpj===cnpj);
+      selFunc.innerHTML = '<option value="">Selecione...</option>';
+      lista.forEach((f)=>{ const o=document.createElement("option"); o.value=f.cpf; o.textContent=`${f.nome} (${f.cpfFmt})`; o.dataset.nome=f.nome; o.dataset.cpffmt=f.cpfFmt; selFunc.appendChild(o); });
+      document.getElementById("ajudaFunc").textContent = (cnpj && lista.length===0)
+        ? "Esta empresa ainda não tem funcionários cadastrados." : "Mostra apenas funcionários da empresa selecionada.";
+      // preenche endereço se a empresa tiver
+      const emp = empresasMap[cnpj];
+      if (emp && emp.endereco && !inEndereco.value) inEndereco.value = emp.endereco;
+    });
+
+    selTipo.addEventListener("change", () => {
+      const c = CONTEUDOS[selTipo.value];
+      const aj = document.getElementById("ajudaConteudo");
+      if (selTipo.value && !c)
+        aj.textContent = "⚠️ Conteúdo programático desta norma ainda não cadastrado — o verso sairá sem itens até você fornecê-lo.";
+      else aj.textContent = "";
+    });
+
+    // Assinatura: mostra a prévia quando escolhe "usar assinatura"
+    document.querySelectorAll('input[name="assin"]').forEach((r) =>
+      r.addEventListener("change", () => {
+        const usarFixa = document.querySelector('input[name="assin"]:checked').value === "fixa";
+        boxAssin.style.display = usarFixa ? "block" : "none";
+      }));
+
+    function mostrar(t, tipo){ msg.textContent=t; msg.className="msg "+tipo; }
+    function fmtBR(iso){ const [a,m,d]=iso.split("-"); return `${d}/${m}/${a}`; }
+    // "8" -> "8 horas"; "8h" -> "8 horas"; "8 horas" -> mantém
+    function normalizarCarga(v){
+      const s = v.trim();
+      if (/^\d+$/.test(s)) return `${s} horas`;
+      if (/^\d+\s*h$/i.test(s)) return `${s.replace(/\s*h$/i,"")} horas`;
+      return s;
+    }
+
+    async function gerar() {
+      const cnpj = selEmpresa.value, cpf = selFunc.value, tipo = selTipo.value;
+      if (!cnpj) return mostrar("Selecione a empresa.", "err");
+      if (!cpf) return mostrar("Selecione o funcionário.", "err");
+      if (!tipo) return mostrar("Selecione o treinamento.", "err");
+      if (!inData.value) return mostrar("Informe a data do treinamento.", "err");
+      if (!inCarga.value.trim()) return mostrar("Informe a carga horária.", "err");
+
+      const opt = selFunc.options[selFunc.selectedIndex];
+      const emp = empresasMap[cnpj];
+      const info = VIGENCIAS[tipo];
+      const cont = CONTEUDOS[tipo];
+
+      btn.disabled = true; btn.textContent = "Gerando...";
+      try {
+        // Assinatura: só carrega se o modo "fixa" estiver escolhido
+        let assinaturaDataUrl = null;
+        const usarFixa = document.querySelector('input[name="assin"]:checked').value === "fixa";
+        if (usarFixa && ASSINATURA_INSTRUTOR_URL) {
+          assinaturaDataUrl = await carregarImagemComoDataUrl(ASSINATURA_INSTRUTOR_URL);
+          if (!assinaturaDataUrl) {
+            mostrar("Não foi possível carregar a assinatura do link. Verifique se é o link raw e se o repositório é público.", "err");
+            btn.disabled = false; btn.textContent = "Gerar certificado e registrar vencimento";
+            return;
+          }
+        }
+
+        // Logo da empresa (opcional) — carrega se configurado
+        let logoDataUrl = null;
+        if (LOGO_URL) {
+          logoDataUrl = await carregarImagemComoDataUrl(LOGO_URL);
+          // se falhar, segue sem logo (não bloqueia a emissão)
+        }
+
+        // 1) PDF
+        const doc = gerarCertificado({
+          nome: opt.dataset.nome,
+          cpfFmt: opt.dataset.cpffmt,
+          treinamentoNome: cont?.nomeCurto || info.label,
+          dataTreino: fmtBR(inData.value),
+          cargaHoraria: normalizarCarga(inCarga.value),
+          empresaRazao: emp.razaoSocial,
+          endereco: inEndereco.value.trim(),
+          selo: cont?.selo || info.label.split("—")[0].trim(),
+          conteudoItens: cont?.itens || [],
+          referencias: cont?.referencias || "",
+          assinaturaInstrutorDataUrl: assinaturaDataUrl,
+          logoDataUrl: logoDataUrl,
+        });
+        const nomeArq = `Certificado_${info.label.split("—")[0].trim().replace(/\s/g,"")}_${opt.dataset.nome.replace(/\s/g,"_")}.pdf`;
+        doc.save(nomeArq);
+
+        // 2) Registrar vencimento (mesma coleção do painel)
+        const emissao = new Date(inData.value+"T00:00:00");
+        const vencimento = info.meses ? somarMeses(emissao, info.meses) : emissao;
+        await addDoc(collection(db, "documentos"), {
+          empresaCnpj: cnpj, empresaRazao: emp.razaoSocial,
+          funcionarioCpf: cpf, funcionarioNome: opt.dataset.nome,
+          tipo, documento: info.label, escopo: "funcionario",
+          cargaHoraria: normalizarCarga(inCarga.value),
+          dataEmissao: Timestamp.fromDate(emissao),
+          dataVencimento: Timestamp.fromDate(vencimento),
+          certificadoEmitido: true,
+          criadoEm: Timestamp.now(),
+          criadoPor: auth.currentUser?.email ?? null,
+        });
+
+        mostrar("Certificado gerado e vencimento registrado no painel!", "ok");
+        selTipo.value=""; inData.value=""; inCarga.value=""; inEndereco.value="";
+      } catch (e) {
+        console.error(e); mostrar("Erro: " + e.message, "err");
+      } finally {
+        btn.disabled = false; btn.textContent = "Gerar certificado e registrar vencimento";
+      }
+    }
+    btn.addEventListener("click", gerar);
+  </script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Novo registro — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .form-wrap { max-width: 640px; }
+    .campo { margin-bottom: 18px; }
+    .campo label { display:block; font-size:.83rem; font-weight:600; color:var(--texto); margin-bottom:7px; }
+    .campo input, .campo select {
+      width:100%; padding:11px 13px; border:1px solid var(--borda); border-radius:9px;
+      font-family:'Inter'; font-size:.95rem; color:var(--texto); background:#fff;
+    }
+    .campo input:focus, .campo select:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+    .campo input[readonly] { background:#f0f2f6; color:var(--texto-suave); }
+    .ajuda { font-size:.8rem; color:var(--texto-suave); margin-top:6px; }
+    .escopo-badge { display:inline-block; font-size:.72rem; font-weight:600; padding:3px 10px; border-radius:20px; margin-left:8px; vertical-align:middle; }
+    .escopo-badge.empresa { background:#eaf0fa; color:var(--tinta-2); }
+    .escopo-badge.funcionario { background:#f3ecda; color:#8a6d1a; }
+    .aviso { font-size:.85rem; padding:11px 14px; border-radius:9px; margin-top:8px; display:none; }
+    .aviso.show { display:block; }
+    .aviso.calc { background:var(--st-ok-bg); color:var(--st-ok-fg); }
+    .aviso.manual { background:var(--st-breve-bg); color:var(--st-breve-fg); }
+    .aviso.info { background:var(--st-breve-bg); color:var(--st-breve-fg); }
+    .msg { margin-top:18px; font-size:.9rem; padding:12px 15px; border-radius:9px; display:none; }
+    .msg.ok  { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+    .campo-func.oculto { display:none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="lateral">
+      <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+    </aside>
+
+    <main class="conteudo">
+      <div class="topo">
+        <div class="eyebrow" id="eyebrow">Cadastro</div>
+        <h1 id="titulo">Novo registro</h1>
+        <p>Escolha a empresa e o tipo. Treinamentos exigem também o funcionário.</p>
+      </div>
+
+      <div class="cartao form-wrap" style="padding:26px;">
+        <div class="campo">
+          <label for="empresa">Empresa</label>
+          <select id="empresa"><option value="">Selecione...</option></select>
+          <div class="aviso info" id="avisoSemEmpresa">Nenhuma empresa cadastrada. Cadastre em “Empresas” primeiro.</div>
+        </div>
+
+        <div class="campo">
+          <label for="tipo">Documento / Treinamento <span class="escopo-badge" id="escopoBadge" style="display:none;"></span></label>
+          <select id="tipo">
+            <option value="">Selecione...</option>
+            <optgroup label="Documentos da empresa" id="grpEmpresa"></optgroup>
+            <optgroup label="Treinamentos / exames do funcionário" id="grpFunc"></optgroup>
+          </select>
+        </div>
+
+        <div class="campo campo-func oculto" id="campoFunc">
+          <label for="funcionario">Funcionário</label>
+          <select id="funcionario"><option value="">Selecione...</option></select>
+          <div class="ajuda" id="ajudaFunc">Mostra apenas funcionários da empresa selecionada.</div>
+        </div>
+
+        <div class="campo">
+          <label for="emissao">Data de emissão</label>
+          <input type="date" id="emissao" />
+        </div>
+
+        <div class="campo">
+          <label for="vencimento">Data de vencimento</label>
+          <input type="date" id="vencimento" />
+          <div class="aviso calc" id="avisoCalc"></div>
+          <div class="aviso manual" id="avisoManual">Este tipo não tem prazo fixo na lista — informe o vencimento manualmente.</div>
+        </div>
+
+        <button class="btn btn-primario" id="btnSalvar" style="width:100%; justify-content:center; margin-top:6px;">Salvar registro</button>
+        <div class="msg" id="msg"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { collection, addDoc, getDoc, getDocs, doc, updateDoc, query, orderBy, where, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { VIGENCIAS, somarMeses } from "./vigencias.js";
+    import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+    montarMenu("cadastro");
+    iniciarAlertaVencimento(db);
+    const edicaoId = new URLSearchParams(location.search).get("id");
+
+    onAuthStateChanged(auth, (u) => {
+      if (!u) { location.href="index.html"; return; }
+      document.getElementById("userEmail").textContent = u.email;
+      iniciar();
+    });
+    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+    const selEmpresa = document.getElementById("empresa");
+    const selTipo = document.getElementById("tipo");
+    const selFunc = document.getElementById("funcionario");
+    const campoFunc = document.getElementById("campoFunc");
+    const inEmissao = document.getElementById("emissao");
+    const inVenc = document.getElementById("vencimento");
+    const avisoCalc = document.getElementById("avisoCalc");
+    const avisoManual = document.getElementById("avisoManual");
+    const escopoBadge = document.getElementById("escopoBadge");
+    const btn = document.getElementById("btnSalvar");
+    const msg = document.getElementById("msg");
+
+    // popular tipos
+    for (const [chave, info] of Object.entries(VIGENCIAS)) {
+      const opt = document.createElement("option");
+      opt.value = chave; opt.textContent = info.label;
+      document.getElementById(info.escopo === "empresa" ? "grpEmpresa" : "grpFunc").appendChild(opt);
+    }
+
+    let empresasMap = {};   // cnpj -> razao
+    let funcTodos = [];      // {cpf, nome, empresaCnpj}
+
+    async function iniciar() {
+      await carregarEmpresas();
+      await carregarFuncionarios();
+      if (edicaoId) carregarParaEdicao();
+    }
+
+    async function carregarEmpresas() {
+      const snap = await getDocs(query(collection(db, "empresas"), orderBy("razaoSocial")));
+      empresasMap = {};
+      selEmpresa.innerHTML = '<option value="">Selecione...</option>';
+      snap.forEach((d) => {
+        const x = d.data();
+        empresasMap[x.cnpj] = x.razaoSocial;
+        const o = document.createElement("option");
+        o.value = x.cnpj; o.textContent = `${x.razaoSocial} (${x.cnpjFmt})`;
+        selEmpresa.appendChild(o);
+      });
+      document.getElementById("avisoSemEmpresa").classList.toggle("show", snap.empty);
+    }
+
+    async function carregarFuncionarios() {
+      const snap = await getDocs(collection(db, "funcionarios"));
+      funcTodos = snap.docs.map((d) => d.data());
+    }
+
+    // Filtra o seletor de funcionários pela empresa escolhida
+    function atualizarFuncionarios() {
+      const cnpj = selEmpresa.value;
+      const doEmpresa = funcTodos.filter((f) => f.empresaCnpj === cnpj);
+      selFunc.innerHTML = '<option value="">Selecione...</option>';
+      doEmpresa.forEach((f) => {
+        const o = document.createElement("option");
+        o.value = f.cpf; o.textContent = `${f.nome} (${f.cpfFmt})`;
+        o.dataset.nome = f.nome;
+        selFunc.appendChild(o);
+      });
+      const aviso = document.getElementById("ajudaFunc");
+      if (cnpj && doEmpresa.length === 0)
+        aviso.textContent = "Esta empresa ainda não tem funcionários cadastrados.";
+      else
+        aviso.textContent = "Mostra apenas funcionários da empresa selecionada.";
+    }
+    selEmpresa.addEventListener("change", atualizarFuncionarios);
+
+    function paraInputDate(d) {
+      const a=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dia=String(d.getDate()).padStart(2,"0");
+      return `${a}-${m}-${dia}`;
+    }
+
+    function aplicarTipo() {
+      const chave = selTipo.value;
+      avisoCalc.classList.remove("show"); avisoManual.classList.remove("show");
+      inVenc.readOnly = false; escopoBadge.style.display = "none";
+      if (!chave) { campoFunc.classList.add("oculto"); return; }
+      const info = VIGENCIAS[chave];
+
+      if (info.escopo === "funcionario") {
+        campoFunc.classList.remove("oculto");
+        escopoBadge.textContent = "Individual"; escopoBadge.className = "escopo-badge funcionario";
+      } else {
+        campoFunc.classList.add("oculto"); selFunc.value = "";
+        escopoBadge.textContent = "Empresa"; escopoBadge.className = "escopo-badge empresa";
+      }
+      escopoBadge.style.display = "inline-block";
+
+      if (info.meses === null) { avisoManual.classList.add("show"); return; }
+      if (!inEmissao.value) return;
+      const venc = somarMeses(new Date(inEmissao.value+"T00:00:00"), info.meses);
+      inVenc.value = paraInputDate(venc); inVenc.readOnly = true;
+      const dur = info.meses % 12 === 0 ? `${info.meses/12} ano(s)` : `${info.meses} meses`;
+      avisoCalc.textContent = `Vigência de ${dur}. Vencimento calculado automaticamente.`;
+      avisoCalc.classList.add("show");
+    }
+    selTipo.addEventListener("change", aplicarTipo);
+    inEmissao.addEventListener("change", aplicarTipo);
+
+    function mostrarMsg(t, tipo) { msg.textContent = t; msg.className = "msg " + tipo; }
+
+    async function carregarParaEdicao() {
+      try {
+        const snap = await getDoc(doc(db, "documentos", edicaoId));
+        if (!snap.exists()) { mostrarMsg("Registro não encontrado.", "err"); return; }
+        const d = snap.data();
+        selEmpresa.value = d.empresaCnpj ?? "";
+        atualizarFuncionarios();
+        selTipo.value = d.tipo ?? "";
+        aplicarTipo();
+        if (d.funcionarioCpf) selFunc.value = d.funcionarioCpf;
+        const emis = d.dataEmissao?.toDate?.() ?? new Date(d.dataEmissao);
+        const venc = d.dataVencimento?.toDate?.() ?? new Date(d.dataVencimento);
+        inEmissao.value = paraInputDate(emis);
+        aplicarTipo();
+        inVenc.value = paraInputDate(venc);
+        document.getElementById("titulo").textContent = "Editar registro";
+        document.getElementById("eyebrow").textContent = "Edição";
+        btn.textContent = "Salvar alterações";
+      } catch (e) { console.error(e); mostrarMsg("Erro ao carregar: " + e.message, "err"); }
+    }
+
+    async function salvar() {
+      const cnpj = selEmpresa.value;
+      const chave = selTipo.value;
+      if (!cnpj) { mostrarMsg("Selecione a empresa.", "err"); return; }
+      if (!chave || !inEmissao.value || !inVenc.value) { mostrarMsg("Preencha todos os campos.", "err"); return; }
+      const info = VIGENCIAS[chave];
+
+      let funcCpf = "", funcNome = "";
+      if (info.escopo === "funcionario") {
+        funcCpf = selFunc.value;
+        if (!funcCpf) { mostrarMsg("Selecione o funcionário.", "err"); return; }
+        funcNome = selFunc.options[selFunc.selectedIndex]?.dataset.nome ?? "";
+      }
+
+      btn.disabled = true; btn.textContent = "Salvando...";
+      try {
+        const dados = {
+          empresaCnpj: cnpj,
+          empresaRazao: empresasMap[cnpj] ?? "",
+          funcionarioCpf: funcCpf,
+          funcionarioNome: funcNome,
+          tipo: chave,
+          documento: info.label,
+          escopo: info.escopo,
+          dataEmissao: Timestamp.fromDate(new Date(inEmissao.value+"T00:00:00")),
+          dataVencimento: Timestamp.fromDate(new Date(inVenc.value+"T00:00:00")),
+        };
+        if (edicaoId) {
+          dados.atualizadoEm = Timestamp.now();
+          dados.atualizadoPor = auth.currentUser?.email ?? null;
+          await updateDoc(doc(db, "documentos", edicaoId), dados);
+          mostrarMsg("Alterações salvas! Redirecionando...", "ok");
+          setTimeout(() => location.href = "dashboard.html", 900);
+          return;
+        }
+        dados.criadoEm = Timestamp.now();
+        dados.criadoPor = auth.currentUser?.email ?? null;
+        await addDoc(collection(db, "documentos"), dados);
+        mostrarMsg("Registro salvo com sucesso!", "ok");
+        selTipo.value=""; selFunc.value=""; inEmissao.value=""; inVenc.value="";
+        inVenc.readOnly=false; avisoCalc.classList.remove("show"); avisoManual.classList.remove("show");
+        campoFunc.classList.add("oculto"); escopoBadge.style.display="none";
+      } catch (e) {
+        console.error(e); mostrarMsg("Erro ao salvar: " + e.message, "err");
+      } finally {
+        btn.disabled = false; btn.textContent = edicaoId ? "Salvar alterações" : "Salvar registro";
+      }
+    }
+    btn.addEventListener("click", salvar);
+  </script>
+</body>
+</html>

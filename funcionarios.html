@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Funcionários — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .grid2 { display:grid; grid-template-columns: 340px 1fr; gap:22px; align-items:start; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns:1fr; } }
+    .campo { margin-bottom:16px; }
+    .campo label { display:block; font-size:.83rem; font-weight:600; margin-bottom:7px; }
+    .campo input, .campo select { width:100%; padding:11px 13px; border:1px solid var(--borda); border-radius:9px; font-family:'Inter'; font-size:.95rem; background:#fff; }
+    .campo input:focus, .campo select:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+    .campo input.erro-input { border-color:var(--st-vencido-forte); }
+    .dica { font-size:.78rem; margin-top:6px; }
+    .dica.ok { color:var(--st-ok-fg); }
+    .dica.err { color:var(--st-vencido-fg); }
+    .msg { margin-top:8px; font-size:.88rem; padding:11px 14px; border-radius:9px; display:none; }
+    .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+    table { width:100%; border-collapse:collapse; }
+    thead th { text-align:left; padding:12px 15px; font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    tbody td { padding:13px 15px; font-size:.9rem; border-bottom:1px solid var(--borda); }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:#fafbfc; }
+    .doc-cell { font-variant-numeric:tabular-nums; color:var(--texto-suave); }
+    .nome { font-weight:600; color:var(--tinta); }
+    .empresa-cell { color:var(--texto-suave); font-size:.85rem; }
+    .acoes { text-align:right; }
+    .acoes button { border:0; background:transparent; padding:6px; border-radius:6px; cursor:pointer; color:var(--texto-suave); }
+    .acoes button:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .acoes svg { width:16px; height:16px; display:block; }
+    .vazio { text-align:center; padding:40px; color:var(--texto-suave); }
+    .contador { font-size:.85rem; color:var(--texto-suave); margin-bottom:12px; }
+    .aviso-vazio { font-size:.85rem; color:var(--st-breve-fg); background:var(--st-breve-bg); padding:11px 14px; border-radius:9px; margin-bottom:14px; display:none; }
+    .aviso-vazio.show { display:block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="lateral">
+      <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+    </aside>
+    <main class="conteudo">
+      <div class="topo">
+        <div class="eyebrow">Cadastros</div>
+        <h1>Funcionários</h1>
+        <p>Cada funcionário é identificado pelo CPF e vinculado a uma empresa.</p>
+      </div>
+      <div class="grid2">
+        <div class="cartao" style="padding:22px;">
+          <h3 style="font-size:1rem; color:var(--tinta); margin-bottom:16px;">Novo funcionário</h3>
+          <div class="aviso-vazio" id="avisoSemEmpresa">Cadastre uma empresa antes de adicionar funcionários.</div>
+          <div class="campo">
+            <label for="cpf">CPF</label>
+            <input type="text" id="cpf" inputmode="numeric" placeholder="000.000.000-00" />
+            <div class="dica" id="dicaCpf"></div>
+          </div>
+          <div class="campo">
+            <label for="nome">Nome completo</label>
+            <input type="text" id="nome" placeholder="Ex.: Pedro Soares Guedes Filho" />
+          </div>
+          <div class="campo">
+            <label for="empresa">Empresa</label>
+            <select id="empresa"><option value="">Selecione...</option></select>
+          </div>
+          <button class="btn btn-primario" id="btnSalvar" style="width:100%; justify-content:center;">Cadastrar funcionário</button>
+          <div class="msg" id="msg"></div>
+        </div>
+        <div class="cartao" style="padding:22px;">
+          <div class="contador" id="contador">—</div>
+          <table>
+            <thead><tr><th>Nome</th><th>CPF</th><th>Empresa</th><th></th></tr></thead>
+            <tbody id="corpo"><tr><td colspan="4" class="vazio">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { validarCPF, formatarCPF, apenasDigitos } from "./documento-br.js";
+    import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+    montarMenu("funcionarios");
+    iniciarAlertaVencimento(db);
+
+    onAuthStateChanged(auth, (u) => {
+      if (!u) { location.href="index.html"; return; }
+      document.getElementById("userEmail").textContent = u.email;
+      carregarEmpresas();
+      listar();
+    });
+    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+    const inCpf = document.getElementById("cpf");
+    const inNome = document.getElementById("nome");
+    const selEmpresa = document.getElementById("empresa");
+    const dicaCpf = document.getElementById("dicaCpf");
+    const btn = document.getElementById("btnSalvar");
+    const msg = document.getElementById("msg");
+
+    let empresasMap = {}; // cnpj -> razaoSocial
+
+    async function carregarEmpresas() {
+      try {
+        const snap = await getDocs(query(collection(db, "empresas"), orderBy("razaoSocial")));
+        empresasMap = {};
+        selEmpresa.innerHTML = '<option value="">Selecione...</option>';
+        snap.forEach((d) => {
+          const x = d.data();
+          empresasMap[x.cnpj] = x.razaoSocial;
+          const o = document.createElement("option");
+          o.value = x.cnpj; o.textContent = `${x.razaoSocial} (${x.cnpjFmt})`;
+          selEmpresa.appendChild(o);
+        });
+        document.getElementById("avisoSemEmpresa").classList.toggle("show", snap.empty);
+      } catch (e) { console.error(e); }
+    }
+
+    inCpf.addEventListener("input", () => {
+      inCpf.value = formatarCPF(inCpf.value);
+      const dig = apenasDigitos(inCpf.value);
+      dicaCpf.textContent = ""; dicaCpf.className = "dica"; inCpf.classList.remove("erro-input");
+      if (dig.length === 11) {
+        if (validarCPF(dig)) { dicaCpf.textContent = "✓ CPF válido"; dicaCpf.className = "dica ok"; }
+        else { dicaCpf.textContent = "✗ CPF inválido — confira os números"; dicaCpf.className = "dica err"; inCpf.classList.add("erro-input"); }
+      }
+    });
+
+    function mostrar(t, tipo) { msg.textContent = t; msg.className = "msg " + tipo; }
+
+    async function salvar() {
+      const nome = inNome.value.trim();
+      const dig = apenasDigitos(inCpf.value);
+      const cnpj = selEmpresa.value;
+      if (!nome) { mostrar("Informe o nome.", "err"); return; }
+      if (!validarCPF(dig)) { mostrar("CPF inválido. Verifique antes de salvar.", "err"); return; }
+      if (!cnpj) { mostrar("Selecione a empresa.", "err"); return; }
+
+      btn.disabled = true; btn.textContent = "Salvando...";
+      try {
+        const ref = doc(db, "funcionarios", dig); // CPF é o ID -> impede duplicata
+        const existe = await getDoc(ref);
+        if (existe.exists()) { mostrar("Já existe um funcionário com este CPF.", "err"); return; }
+        await setDoc(ref, {
+          cpf: dig,
+          cpfFmt: formatarCPF(dig),
+          nome,
+          empresaCnpj: cnpj,
+          empresaRazao: empresasMap[cnpj] ?? "",
+          criadoEm: Timestamp.now(),
+          criadoPor: auth.currentUser?.email ?? null,
+        });
+        mostrar("Funcionário cadastrado!", "ok");
+        inCpf.value=""; inNome.value=""; selEmpresa.value=""; dicaCpf.textContent="";
+        listar();
+      } catch (e) {
+        console.error(e); mostrar("Erro ao salvar: " + e.message, "err");
+      } finally {
+        btn.disabled = false; btn.textContent = "Cadastrar funcionário";
+      }
+    }
+    btn.addEventListener("click", salvar);
+
+    async function listar() {
+      const corpo = document.getElementById("corpo");
+      try {
+        const snap = await getDocs(query(collection(db, "funcionarios"), orderBy("nome")));
+        const del = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>';
+        document.getElementById("contador").textContent = `${snap.size} funcionário(s) cadastrado(s)`;
+        if (snap.empty) { corpo.innerHTML = `<tr><td colspan="4" class="vazio">Nenhum funcionário ainda.</td></tr>`; return; }
+        corpo.innerHTML = snap.docs.map((d) => {
+          const x = d.data();
+          return `<tr>
+            <td class="nome">${x.nome}</td>
+            <td class="doc-cell">${x.cpfFmt}</td>
+            <td class="empresa-cell">${x.empresaRazao || "—"}</td>
+            <td class="acoes"><button title="Excluir" data-del="${d.id}" data-nome="${x.nome}">${del}</button></td>
+          </tr>`;
+        }).join("");
+        corpo.querySelectorAll("[data-del]").forEach((b) =>
+          b.addEventListener("click", () => excluir(b.dataset.del, b.dataset.nome)));
+      } catch (e) {
+        console.error(e); corpo.innerHTML = `<tr><td colspan="4" class="vazio">Erro ao carregar.<br><small>${e.message}</small></td></tr>`;
+      }
+    }
+
+    async function excluir(id, nome) {
+      if (!confirm(`Excluir o funcionário "${nome}"?`)) return;
+      try { await deleteDoc(doc(db, "funcionarios", id)); listar(); }
+      catch (e) { alert("Erro ao excluir: " + e.message); }
+    }
+  </script>
+</body>
+</html>

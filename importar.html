@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importar documentos — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .zona-drop {
+      border: 2px dashed var(--borda); border-radius: 14px; background: #fafbfc;
+      padding: 42px 24px; text-align: center; cursor: pointer; transition: all .15s;
+    }
+    .zona-drop.over { border-color: var(--tinta-2); background: #eef2fb; }
+    .zona-drop svg { width: 42px; height: 42px; color: var(--texto-suave); margin-bottom: 12px; }
+    .zona-drop p { color: var(--texto-suave); font-size: .95rem; }
+    .zona-drop strong { color: var(--tinta); }
+
+    .fila { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+    .item {
+      background: #fff; border: 1px solid var(--borda); border-radius: 10px;
+      padding: 14px 16px; display: grid;
+      grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+    }
+    .item .ext { width: 38px; height: 38px; border-radius: 8px; background: var(--tinta-2);
+      color:#fff; display:grid; place-items:center; font-size:.7rem; font-weight:700; flex-shrink:0; }
+    .item .ext.pdf { background:#c0392b; }
+    .item .ext.pptx { background:#c45911; }
+    .item .ext.docx { background:#2b5797; }
+    .item .info { min-width:0; }
+    .item .info .nome { font-weight:600; font-size:.9rem; color:var(--tinta);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .item .info .status { font-size:.8rem; margin-top:3px; }
+    .item .info .status.proc { color:var(--texto-suave); }
+    .item .info .status.ok { color:var(--st-ok-fg); }
+    .item .info .status.err { color:var(--st-vencido-fg); }
+    .item .info .status.rev { color:var(--st-breve-fg); }
+    .spinner { width:20px; height:20px; border:2px solid var(--borda);
+      border-top-color:var(--tinta); border-radius:50%; animation:spin .6s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* tabela de revisão */
+    .secao-rev { margin-top: 28px; display: none; }
+    .secao-rev.show { display: block; }
+    .rev-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .rev-header h2 { font-size:1.1rem; color:var(--tinta); }
+    .rev-aviso { font-size:.83rem; background:var(--st-breve-bg); color:var(--st-breve-fg);
+      padding:10px 14px; border-radius:8px; margin-bottom:14px; }
+    .rev-table { width:100%; border-collapse:collapse; background:#fff;
+      border:1px solid var(--borda); border-radius:10px; overflow:hidden; }
+    .rev-table th { background:#eef1f5; padding:10px 12px; text-align:left;
+      font-size:.74rem; font-weight:600; text-transform:uppercase;
+      letter-spacing:.3px; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    .rev-table td { padding:9px 10px; border-bottom:1px solid var(--borda); font-size:.87rem; }
+    .rev-table tr:last-child td { border-bottom:0; }
+    .rev-table input, .rev-table select {
+      width:100%; padding:6px 8px; border:1px solid var(--borda); border-radius:6px;
+      font-family:'Inter'; font-size:.85rem; background:#fff;
+    }
+    .rev-table input:focus, .rev-table select:focus {
+      outline:none; border-color:var(--tinta-2);
+    }
+    .rev-table .del-btn { border:0; background:transparent; cursor:pointer; color:var(--texto-suave); padding:4px; }
+    .rev-table .del-btn:hover { color:var(--st-vencido-forte); }
+    .rev-table .del-btn svg { width:15px; height:15px; display:block; }
+    .incerto { background:#fffbe6; }
+    .tag-incerto { display:inline-block; font-size:.7rem; padding:2px 7px;
+      border-radius:10px; background:#fbf1d6; color:var(--st-breve-fg); margin-left:6px; }
+
+    .acoes-finais { display:flex; gap:12px; margin-top:18px; align-items:center; flex-wrap:wrap; }
+    .msg-import { font-size:.9rem; padding:11px 14px; border-radius:9px; display:none; }
+    .msg-import.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg-import.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="topo">
+      <div class="eyebrow">Importação em lote</div>
+      <h1>Importar documentos</h1>
+      <p>Suba certificados e listas de presença (PDF, PPTX, DOCX). O sistema extrai os dados automaticamente — você revisa antes de gravar.</p>
+    </div>
+
+    <!-- zona de drop -->
+    <div class="cartao" style="padding:20px;">
+      <div class="zona-drop" id="zonaDrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p><strong>Arraste arquivos aqui</strong> ou clique para selecionar</p>
+        <p style="font-size:.8rem; margin-top:4px;">PDF, PPTX e DOCX • Vários arquivos ao mesmo tempo</p>
+        <input type="file" id="inputArq" multiple accept=".pdf,.pptx,.docx" style="display:none" />
+      </div>
+      <div class="fila" id="fila"></div>
+    </div>
+
+    <!-- tabela de revisão -->
+    <div class="secao-rev" id="secaoRev">
+      <div class="rev-header">
+        <h2>Revisar antes de gravar</h2>
+        <span id="contRev" style="font-size:.85rem; color:var(--texto-suave);"></span>
+      </div>
+      <div class="rev-aviso">
+        ⚠️ Campos em <span style="background:#fffbe6; padding:1px 5px; border-radius:4px;">amarelo</span>
+        tiveram baixa confiança na extração — confira antes de confirmar.
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="rev-table">
+          <thead>
+            <tr>
+              <th>Tipo</th><th>Nome</th><th>CPF</th><th>Empresa</th>
+              <th>Norma</th><th>Data</th><th>Carga</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tabelaRev"></tbody>
+        </table>
+      </div>
+      <div class="acoes-finais">
+        <button class="btn btn-primario" id="btnGravar">Gravar todos no sistema</button>
+        <button class="btn" style="background:#eef1f6; color:var(--tinta);" id="btnLimpar">Limpar tudo</button>
+        <div class="msg-import" id="msgImport"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { collection, addDoc, getDocs, doc, setDoc, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { VIGENCIAS, somarMeses } from "./vigencias.js";
+import { montarMenu } from "./menu.js";
+
+montarMenu("importar");
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+// ─── Drag & drop ──────────────────────────────────────────────────
+const zona = document.getElementById("zonaDrop");
+const inputArq = document.getElementById("inputArq");
+zona.addEventListener("click", () => inputArq.click());
+zona.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("over"); });
+zona.addEventListener("dragleave", () => zona.classList.remove("over"));
+zona.addEventListener("drop", e => { e.preventDefault(); zona.classList.remove("over"); processarArquivos([...e.dataTransfer.files]); });
+inputArq.addEventListener("change", () => processarArquivos([...inputArq.files]));
+
+// ─── Estado global ─────────────────────────────────────────────────
+let registros = []; // [{id, arquivo, dados, confianca}]
+
+// ─── Utilitários ───────────────────────────────────────────────────
+const fileToBase64 = f => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(r.result.split(",")[1]);
+  r.onerror = rej; r.readAsDataURL(f);
+});
+const ext = nome => nome.split(".").pop().toLowerCase();
+
+// ─── Extração via API Claude ───────────────────────────────────────
+async function extrairComClaude(conteudo, tipo, nomeArq) {
+  // conteudo = {type:"text", text:"..."} | {type:"image", source:{...}}
+  const system = `Você é um extrator de dados de documentos de segurança do trabalho brasileiros.
+Extraia os campos abaixo em JSON puro (sem markdown).
+Se não existir, use null. Para CPF use apenas dígitos. Para data use DD/MM/AAAA.
+Para listas de presença, retorne todos os participantes em "participantes":[{nome,cpf,funcao}].
+Sempre inclua "confianca": "alta"|"media"|"baixa" para indicar sua certeza geral.
+
+{
+  "tipo_doc": "certificado"|"lista_presenca"|"ordem_servico"|"outro",
+  "nome": "NOME COMPLETO DO PARTICIPANTE",
+  "cpf": "somente digitos ou null",
+  "norma": "NR-06"|"NR-35"|etc ou null,
+  "treinamento": "nome completo do treinamento",
+  "data": "DD/MM/AAAA",
+  "carga_horaria": "X horas",
+  "empresa": "empresa contratante (NÃO é a Richard)",
+  "participantes": null ou [{nome,cpf,funcao}],
+  "confianca": "alta"
+}`;
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6", max_tokens: 2000,
+      system,
+      messages: [{ role: "user", content: [
+        ...(tipo === "imagem"
+          ? [{ type:"image", source:{ type:"base64", media_type:"image/png", data:conteudo }}]
+          : []),
+        { type:"text", text: tipo === "texto"
+          ? `Arquivo: ${nomeArq}\n\nTexto:\n${conteudo}`
+          : `Arquivo: ${nomeArq}. Extraia os dados deste documento.` }
+      ]}]
+    })
+  });
+  const data = await resp.json();
+  const txt = data.content?.[0]?.text || "";
+  return JSON.parse(txt.replace(/```json|```/g,"").trim());
+}
+
+// ─── Leitura de PPTX ───────────────────────────────────────────────
+// PPTX é um ZIP. Extrai texto dos slides via DOMParser.
+async function lerPPTX(file) {
+  const { default: JSZip } = await import("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+  const zip = await JSZip.loadAsync(file);
+  let texto = "";
+  const slides = Object.keys(zip.files).filter(k => k.match(/ppt\/slides\/slide\d+\.xml/)).sort();
+  for (const slide of slides.slice(0, 3)) {
+    const xml = await zip.files[slide].async("text");
+    const doc = new DOMParser().parseFromString(xml, "text/xml");
+    const txts = [...doc.querySelectorAll("t")].map(t => t.textContent).join(" ");
+    texto += txts + "\n";
+  }
+  return texto;
+}
+
+// ─── Leitura de DOCX ───────────────────────────────────────────────
+async function lerDOCX(file) {
+  const { default: JSZip } = await import("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+  const zip = await JSZip.loadAsync(file);
+  const xml = await zip.files["word/document.xml"]?.async("text") || "";
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  return [...doc.querySelectorAll("t")].map(t => t.textContent).join(" ");
+}
+
+// ─── Leitura de PDF ────────────────────────────────────────────────
+// Carrega PDF.js via CDN e extrai texto. Se texto vazio → envia como imagem.
+async function lerPDF(file) {
+  if (!window.pdfjsLib) {
+    await new Promise(res => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      s.onload = res; document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  const ab = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
+  let texto = "";
+  // extrai texto das 2 primeiras páginas
+  for (let i = 1; i <= Math.min(2, pdf.numPages); i++) {
+    const pg = await pdf.getPage(i);
+    const content = await pg.getTextContent();
+    texto += content.items.map(it => it.str).join(" ") + "\n";
+  }
+  if (texto.trim().length > 50) return { tipo:"texto", conteudo: texto };
+
+  // PDF escaneado: rasteriza p1 e envia como imagem
+  const pg1 = await pdf.getPage(1);
+  const vp = pg1.getViewport({ scale: 2.0 });
+  const canvas = document.createElement("canvas");
+  canvas.width = vp.width; canvas.height = vp.height;
+  await pg1.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+  const b64 = canvas.toDataURL("image/png").split(",")[1];
+  return { tipo:"imagem", conteudo: b64 };
+}
+
+// ─── Pipeline principal ────────────────────────────────────────────
+async function processarArquivos(files) {
+  const fila = document.getElementById("fila");
+  for (const file of files) {
+    const id = `arq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const e = ext(file.name);
+    const div = document.createElement("div");
+    div.className = "item"; div.id = id;
+    div.innerHTML = `
+      <div class="ext ${e}">${e.toUpperCase()}</div>
+      <div class="info">
+        <div class="nome">${file.name}</div>
+        <div class="status proc" id="st_${id}">Aguardando extração...</div>
+      </div>
+      <div id="sp_${id}"><div class="spinner"></div></div>`;
+    fila.appendChild(div);
+
+    processar(id, file, e);
+  }
+}
+
+async function processar(id, file, e) {
+  const setSt = (txt, cls) => {
+    const el = document.getElementById(`st_${id}`);
+    if (el) { el.textContent = txt; el.className = `status ${cls}`; }
+  };
+  const setSp = html => {
+    const el = document.getElementById(`sp_${id}`);
+    if (el) el.innerHTML = html;
+  };
+
+  try {
+    setSt("Lendo arquivo...", "proc");
+    let resultado;
+
+    if (e === "pdf") {
+      const { tipo, conteudo } = await lerPDF(file);
+      setSt(`Extraindo dados${tipo==="imagem" ? " (OCR)":""}...`, "proc");
+      resultado = await extrairComClaude(conteudo, tipo, file.name);
+    } else if (e === "pptx") {
+      setSt("Lendo apresentação...", "proc");
+      const texto = await lerPPTX(file);
+      setSt("Extraindo dados...", "proc");
+      resultado = await extrairComClaude(texto, "texto", file.name);
+    } else if (e === "docx") {
+      setSt("Lendo documento...", "proc");
+      const texto = await lerDOCX(file);
+      setSt("Extraindo dados...", "proc");
+      resultado = await extrairComClaude(texto, "texto", file.name);
+    } else {
+      setSt("Formato não suportado.", "err");
+      setSp(""); return;
+    }
+
+    if (resultado.tipo_doc === "ordem_servico") {
+      setSt("Ordem de serviço — ignorada (não gera vencimento).", "rev");
+      setSp(""); return;
+    }
+    if (resultado.tipo_doc === "outro") {
+      setSt("Documento não reconhecido — revise manualmente.", "err");
+      setSp(""); return;
+    }
+
+    // Expandir participantes de listas de presença
+    const entradas = [];
+    if (resultado.tipo_doc === "lista_presenca" && resultado.participantes?.length) {
+      resultado.participantes.forEach(p => entradas.push({
+        ...resultado, nome: p.nome, cpf: p.cpf || null,
+        funcao: p.funcao || null, tipo_doc: "lista_presenca"
+      }));
+    } else {
+      entradas.push(resultado);
+    }
+
+    entradas.forEach(d => {
+      registros.push({ id: `reg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        arquivo: file.name, dados: d, confianca: d.confianca || "media" });
+    });
+
+    setSt(`✓ ${entradas.length} registro(s) extraído(s) — aguardando revisão.`, "ok");
+    setSp("");
+    renderTabela();
+
+  } catch (err) {
+    console.error(err);
+    setSt(`Erro: ${err.message}`, "err");
+    document.getElementById(`sp_${id}`).innerHTML = "";
+  }
+}
+
+// ─── Tabela de revisão ─────────────────────────────────────────────
+function renderTabela() {
+  const secao = document.getElementById("secaoRev");
+  const tbody = document.getElementById("tabelaRev");
+  const cont = document.getElementById("contRev");
+  if (registros.length === 0) { secao.classList.remove("show"); return; }
+  secao.classList.add("show");
+  cont.textContent = `${registros.length} registro(s) para revisar`;
+  const incertos = registros.filter(r => r.confianca !== "alta").length;
+  if (incertos) cont.textContent += ` — ${incertos} com baixa confiança`;
+
+  const iconDel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
+  tbody.innerHTML = registros.map(r => {
+    const d = r.dados;
+    const incerto = r.confianca !== "alta";
+    const cls = incerto ? "incerto" : "";
+    const tag = incerto ? `<span class="tag-incerto">revisar</span>` : "";
+    return `<tr class="${cls}" data-id="${r.id}">
+      <td>${d.tipo_doc === "lista_presenca" ? "Lista" : "Certificado"}${tag}</td>
+      <td><input value="${d.nome||""}" data-campo="nome" /></td>
+      <td><input value="${d.cpf||""}" data-campo="cpf" style="width:120px" /></td>
+      <td><input value="${d.empresa||""}" data-campo="empresa" /></td>
+      <td><input value="${d.norma||""}" data-campo="norma" style="width:70px" /></td>
+      <td><input value="${d.data||""}" data-campo="data" style="width:100px" /></td>
+      <td><input value="${d.carga_horaria||""}" data-campo="carga_horaria" style="width:80px" /></td>
+      <td><button class="del-btn" data-id="${r.id}" title="Remover">${iconDel}</button></td>
+    </tr>`;
+  }).join("");
+
+  // Atualiza os dados ao editar
+  tbody.querySelectorAll("input[data-campo]").forEach(inp => {
+    inp.addEventListener("change", () => {
+      const tr = inp.closest("tr");
+      const id = tr.dataset.id;
+      const reg = registros.find(r => r.id === id);
+      if (reg) reg.dados[inp.dataset.campo] = inp.value;
+    });
+  });
+  // Remover linha
+  tbody.querySelectorAll(".del-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      registros = registros.filter(r => r.id !== btn.dataset.id);
+      renderTabela();
+    });
+  });
+}
+
+// ─── Gravar no Firestore ───────────────────────────────────────────
+document.getElementById("btnGravar").addEventListener("click", gravar);
+document.getElementById("btnLimpar").addEventListener("click", () => {
+  registros = [];
+  document.getElementById("fila").innerHTML = "";
+  document.getElementById("secaoRev").classList.remove("show");
+  document.getElementById("msgImport").className = "msg-import";
+});
+
+async function gravar() {
+  const btn = document.getElementById("btnGravar");
+  const msg = document.getElementById("msgImport");
+  btn.disabled = true; btn.textContent = "Gravando...";
+
+  // Lê os valores atuais da tabela (pode ter sido editado)
+  const tbody = document.getElementById("tabelaRev");
+  tbody.querySelectorAll("tr[data-id]").forEach(tr => {
+    const id = tr.dataset.id;
+    const reg = registros.find(r => r.id === id);
+    if (!reg) return;
+    tr.querySelectorAll("input[data-campo]").forEach(inp => {
+      reg.dados[inp.dataset.campo] = inp.value.trim();
+    });
+  });
+
+  let ok = 0, erros = 0;
+  for (const reg of registros) {
+    const d = reg.dados;
+    try {
+      const cpfDig = (d.cpf||"").replace(/\D/g,"");
+      const cnpjKey = d.empresa || "desconhecida";
+      const emissaoStr = d.data; // DD/MM/AAAA
+      let emissao = new Date();
+      if (emissaoStr && emissaoStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
+        const [dd,mm,aaaa] = emissaoStr.split("/");
+        emissao = new Date(`${aaaa}-${mm}-${dd}T00:00:00`);
+      }
+
+      // Descobrir tipo da norma para calcular vigência
+      const chaveNR = Object.keys(VIGENCIAS).find(k =>
+        VIGENCIAS[k].label.toLowerCase().includes((d.norma||"").toLowerCase().replace("nr-","nr"))
+        || k.replace("_","").toLowerCase() === (d.norma||"").toLowerCase().replace(/[\s-]/g,"")
+      );
+      const info = chaveNR ? VIGENCIAS[chaveNR] : null;
+      const vencimento = info?.meses ? somarMeses(emissao, info.meses) : emissao;
+
+      // Garante empresa e funcionário no banco se tiver CPF
+      if (cpfDig.length === 11 && d.nome) {
+        const fRef = doc(db, "funcionarios", cpfDig);
+        const fSnap = await getDoc(fRef);
+        if (!fSnap.exists()) {
+          await setDoc(fRef, {
+            cpf: cpfDig, cpfFmt: cpfDig.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"),
+            nome: d.nome, empresaRazao: d.empresa || "",
+            empresaCnpj: "", criadoEm: Timestamp.now(), importado: true,
+          });
+        }
+      }
+
+      await addDoc(collection(db, "documentos"), {
+        funcionarioNome: d.nome || "", funcionarioCpf: cpfDig,
+        empresaRazao: d.empresa || "", empresaCnpj: "",
+        tipo: chaveNR || d.norma || "desconhecido",
+        documento: d.treinamento || d.norma || "",
+        escopo: "funcionario",
+        cargaHoraria: d.carga_horaria || "",
+        dataEmissao: Timestamp.fromDate(emissao),
+        dataVencimento: Timestamp.fromDate(vencimento),
+        importado: true, arquivoOrigem: reg.arquivo,
+        criadoEm: Timestamp.now(),
+        criadoPor: auth.currentUser?.email ?? null,
+      });
+      ok++;
+    } catch(e) {
+      console.error("Erro ao gravar", reg.arquivo, e);
+      erros++;
+    }
+  }
+
+  btn.disabled = false; btn.textContent = "Gravar todos no sistema";
+  msg.textContent = `${ok} registro(s) gravado(s)${erros ? ` — ${erros} com erro (veja o console)` : ""}.`;
+  msg.className = `msg-import ${erros && ok===0 ? "err" : "ok"}`;
+  if (ok > 0) { registros = []; setTimeout(() => { renderTabela(); msg.className="msg-import"; }, 3000); }
+}
+</script>
+</body>
+</html>

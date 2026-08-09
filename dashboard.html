@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; margin-bottom: 24px; }
+    .metrica { padding: 18px 20px; position: relative; overflow: hidden; }
+    .metrica::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; }
+    .metrica.m-vencido::before { background: var(--st-vencido-forte); }
+    .metrica.m-breve::before   { background: var(--st-breve-forte); }
+    .metrica.m-ok::before      { background: var(--st-ok-forte); }
+    .metrica.m-total::before   { background: var(--tinta); }
+    .metrica .num { font-family:'Archivo'; font-size: 2.1rem; font-weight: 800; line-height: 1; color: var(--tinta); }
+    .metrica.m-vencido .num { color: var(--st-vencido-forte); }
+    .metrica.m-breve .num   { color: var(--st-breve-forte); }
+    .metrica.m-ok .num      { color: var(--st-ok-forte); }
+    .metrica .rot { font-size: .82rem; color: var(--texto-suave); margin-top: 7px; }
+
+    .alerta { display:none; align-items:center; gap:14px; padding:15px 20px; border-radius: var(--raio); margin-bottom:22px; background: var(--st-breve-bg); border:1px solid #f0d488; }
+    .alerta.show { display:flex; }
+    .alerta .ico { width:34px; height:34px; border-radius:8px; background:var(--st-breve-forte); color:#fff; display:grid; place-items:center; flex-shrink:0; font-weight:700; }
+    .alerta .txt { font-size:.92rem; color: var(--st-breve-fg); }
+    .alerta .txt strong { font-family:'Archivo'; }
+
+    .barra { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+    .barra input, .barra select { padding:10px 12px; border:1px solid var(--borda); border-radius:8px; font-family:'Inter'; font-size:.9rem; background:#fff; color:var(--texto); }
+    .barra input[type=search] { min-width:240px; }
+    .barra .dir { margin-left:auto; }
+
+    table { width:100%; border-collapse:collapse; }
+    thead th { text-align:left; padding:13px 16px; font-size:.76rem; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    tbody td { padding:14px 16px; font-size:.9rem; border-bottom:1px solid var(--borda); vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:#fafbfc; }
+    .cli { font-weight:600; color:var(--tinta); }
+    .func { color:var(--texto); }
+    .func.vazio { color:var(--texto-suave); font-style:italic; }
+
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:20px; font-size:.78rem; font-weight:600; }
+    .tag::before { content:""; width:7px; height:7px; border-radius:50%; }
+    .tag.vencido { background:var(--st-vencido-bg); color:var(--st-vencido-fg); }
+    .tag.vencido::before { background:var(--st-vencido-forte); }
+    .tag.breve { background:var(--st-breve-bg); color:var(--st-breve-fg); }
+    .tag.breve::before { background:var(--st-breve-forte); }
+    .tag.emdia { background:var(--st-ok-bg); color:var(--st-ok-fg); }
+    .tag.emdia::before { background:var(--st-ok-forte); }
+
+    .acoes { white-space:nowrap; text-align:right; }
+    .acoes button { border:0; background:transparent; padding:6px; border-radius:6px; cursor:pointer; color:var(--texto-suave); }
+    .acoes button:hover { background:#eef1f6; color:var(--tinta); }
+    .acoes button.del:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .acoes svg { width:17px; height:17px; display:block; }
+
+    .vazio-estado { text-align:center; padding:54px 20px; color:var(--texto-suave); }
+    .vazio-estado svg { width:40px; height:40px; opacity:.4; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="lateral">
+      <div class="logo">
+        <div class="selo">RA</div>
+        <div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="rodape">
+        <div class="usuario" id="userEmail">—</div>
+        <button id="btnSair">Sair da conta</button>
+      </div>
+    </aside>
+
+    <main class="conteudo">
+      <div class="topo">
+        <div class="eyebrow">Visão geral</div>
+        <h1>Painel de vencimentos</h1>
+        <p>Acompanhe documentos da empresa e treinamentos por funcionário.</p>
+      </div>
+
+      <div class="alerta" id="alerta">
+        <div class="ico">!</div>
+        <div class="txt" id="alertaTxt"></div>
+      </div>
+
+      <section class="metricas">
+        <div class="cartao metrica m-vencido"><div class="num" id="cVencido">0</div><div class="rot">Vencidos</div></div>
+        <div class="cartao metrica m-breve"><div class="num" id="cBreve">0</div><div class="rot">Vencem em 30 dias</div></div>
+        <div class="cartao metrica m-ok"><div class="num" id="cEmdia">0</div><div class="rot">Em dia</div></div>
+        <div class="cartao metrica m-total"><div class="num" id="cTotal">0</div><div class="rot">Total de registros</div></div>
+      </section>
+
+      <div class="barra">
+        <input type="search" id="busca" placeholder="Buscar empresa, funcionário ou documento..." />
+        <select id="filtroStatus">
+          <option value="">Todos os status</option>
+          <option value="vencido">Vencidos</option>
+          <option value="breve">Vencem em 30 dias</option>
+          <option value="emdia">Em dia</option>
+        </select>
+        <select id="filtroTipo">
+          <option value="">Todos os registros</option>
+          <option value="empresa">Só documentos da empresa</option>
+          <option value="funcionario">Só treinamentos de funcionário</option>
+        </select>
+        <a href="cadastro.html" class="btn btn-marca dir">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Novo registro
+        </a>
+      </div>
+
+      <div class="cartao">
+        <table>
+          <thead>
+            <tr>
+              <th>Empresa</th>
+              <th>Funcionário</th>
+              <th>Documento / Treinamento</th>
+              <th>Emissão</th>
+              <th>Vencimento</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="corpo">
+            <tr><td colspan="7" class="vazio-estado">Carregando registros...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { collection, getDocs, orderBy, query, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+    montarMenu("dashboard");
+    iniciarAlertaVencimento(db);
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { window.location.href = "index.html"; return; }
+      document.getElementById("userEmail").textContent = user.email;
+      carregar();
+    });
+
+    document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+    function statusPorVencimento(venc) {
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const dias = Math.ceil((venc - hoje) / 86400000);
+      if (dias < 0) return { chave:"vencido", label:"Vencido" };
+      if (dias <= 30) return { chave:"breve", label:`Vence em ${dias}d` };
+      return { chave:"emdia", label:"Em dia" };
+    }
+    const fmt = (d) => d.toLocaleDateString("pt-BR");
+
+    let todos = [];
+
+    async function carregar() {
+      const corpo = document.getElementById("corpo");
+      try {
+        const q = query(collection(db, "documentos"), orderBy("dataVencimento", "asc"));
+        const snap = await getDocs(q);
+        todos = snap.docs.map((d) => {
+          const x = d.data();
+          const venc = x.dataVencimento?.toDate?.() ?? new Date(x.dataVencimento);
+          const emis = x.dataEmissao?.toDate?.() ?? new Date(x.dataEmissao);
+          return {
+            id: d.id,
+            cliente: x.empresaRazao ?? x.cliente ?? "—",
+            funcionario: x.funcionarioNome ?? x.funcionario ?? "",
+            documento: x.documento ?? x.tipo ?? "—",
+            emissao: emis,
+            vencimento: venc,
+            status: statusPorVencimento(venc),
+          };
+        });
+        atualizarResumo();
+        render();
+      } catch (err) {
+        console.error(err);
+        corpo.innerHTML = `<tr><td colspan="7" class="vazio-estado">
+          Não foi possível carregar os registros. Verifique as regras de acesso do banco.<br>
+          <small>${err.message}</small></td></tr>`;
+      }
+    }
+
+    function atualizarResumo() {
+      const c = { vencido:0, breve:0, emdia:0 };
+      todos.forEach((r) => c[r.status.chave]++);
+      cVencido.textContent = c.vencido;
+      cBreve.textContent = c.breve;
+      cEmdia.textContent = c.emdia;
+      cTotal.textContent = todos.length;
+
+      const agora = new Date();
+      const noMes = todos.filter((r) =>
+        r.vencimento.getMonth() === agora.getMonth() &&
+        r.vencimento.getFullYear() === agora.getFullYear() &&
+        r.status.chave !== "vencido"
+      ).length;
+
+      const alerta = document.getElementById("alerta");
+      if (noMes > 0) {
+        const mes = agora.toLocaleDateString("pt-BR", { month:"long" });
+        document.getElementById("alertaTxt").innerHTML =
+          `<strong>${noMes}</strong> registro(s) vencem ainda em ${mes}. Providencie a renovação a tempo.`;
+        alerta.classList.add("show");
+      } else {
+        alerta.classList.remove("show");
+      }
+    }
+
+    function render() {
+      const corpo = document.getElementById("corpo");
+      const termo = busca.value.toLowerCase().trim();
+      const fSt = filtroStatus.value;
+      const fTp = filtroTipo.value;
+
+      const lista = todos.filter((r) => {
+        const txt = !termo ||
+          r.cliente.toLowerCase().includes(termo) ||
+          r.funcionario.toLowerCase().includes(termo) ||
+          r.documento.toLowerCase().includes(termo);
+        const st = !fSt || r.status.chave === fSt;
+        const tp = !fTp ||
+          (fTp === "empresa" && !r.funcionario) ||
+          (fTp === "funcionario" && r.funcionario);
+        return txt && st && tp;
+      });
+
+      if (lista.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="7" class="vazio-estado">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6M9 16h6M9 8h6M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+          <div>Nenhum registro encontrado.</div></td></tr>`;
+        return;
+      }
+
+      const iconEdit = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      const iconDel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
+
+      corpo.innerHTML = lista.map((r) => `
+        <tr>
+          <td class="cli">${r.cliente}</td>
+          <td class="func ${r.funcionario ? "" : "vazio"}">${r.funcionario || "— (empresa)"}</td>
+          <td>${r.documento}</td>
+          <td>${fmt(r.emissao)}</td>
+          <td>${fmt(r.vencimento)}</td>
+          <td><span class="tag ${r.status.chave}">${r.status.label}</span></td>
+          <td class="acoes">
+            <button title="Editar" data-edit="${r.id}">${iconEdit}</button>
+            <button title="Excluir" class="del" data-del="${r.id}" data-nome="${r.documento}">${iconDel}</button>
+          </td>
+        </tr>`).join("");
+
+      corpo.querySelectorAll("[data-edit]").forEach((b) =>
+        b.addEventListener("click", () => location.href = "cadastro.html?id=" + b.dataset.edit));
+      corpo.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", () => excluir(b.dataset.del, b.dataset.nome)));
+    }
+
+    async function excluir(id, nome) {
+      if (!confirm(`Excluir o registro "${nome}"?\n\nEsta ação não pode ser desfeita.`)) return;
+      try {
+        await deleteDoc(doc(db, "documentos", id));
+        todos = todos.filter((r) => r.id !== id);
+        atualizarResumo();
+        render();
+      } catch (err) {
+        console.error(err);
+        alert("Não foi possível excluir: " + err.message);
+      }
+    }
+
+    busca.addEventListener("input", render);
+    filtroStatus.addEventListener("change", render);
+    filtroTipo.addEventListener("change", render);
+  </script>
+</body>
+</html>

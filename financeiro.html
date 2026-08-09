@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financeiro — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .metricas { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:22px; }
+    .metrica { padding:16px 18px; position:relative; overflow:hidden; }
+    .metrica::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; }
+    .metrica.m1::before { background:#2e7d9a; } .metrica.m2::before { background:#7a5cbf; }
+    .metrica.m3::before { background:#1e7d4a; } .metrica.m4::before { background:var(--tinta); }
+    .metrica .num { font-family:'Archivo'; font-size:1.5rem; font-weight:800; color:var(--tinta); }
+    .metrica .rot { font-size:.78rem; color:var(--texto-suave); margin-top:5px; }
+
+    .barra { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+    .barra select, .barra input { padding:9px 12px; border:1px solid var(--borda); border-radius:8px; font-family:'Inter'; font-size:.88rem; background:#fff; }
+    .barra input[type=search] { min-width:220px; }
+
+    table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--borda); border-radius:10px; overflow:hidden; }
+    thead th { background:#eef1f5; padding:11px 13px; text-align:left; font-size:.73rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--texto-suave); border-bottom:1px solid var(--borda); }
+    tbody td { padding:11px 13px; border-bottom:1px solid var(--borda); font-size:.87rem; vertical-align:middle; }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover { background:#fafbfc; }
+    .cli { font-weight:600; color:var(--tinta); }
+    .valor-input { width:110px; padding:6px 8px; border:1px solid var(--borda); border-radius:6px; font-family:'Inter'; font-size:.85rem; text-align:right; }
+    .sel-mini { padding:6px 8px; border:1px solid var(--borda); border-radius:6px; font-family:'Inter'; font-size:.82rem; background:#fff; }
+
+    .est { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:20px; font-size:.76rem; font-weight:600; }
+    .est::before { content:""; width:7px; height:7px; border-radius:50%; }
+    .est.valor { background:#eef0f3; color:#6b7688; } .est.valor::before { background:#6b7688; }
+    .est.negociacao { background:var(--st-breve-bg); color:var(--st-breve-fg); } .est.negociacao::before { background:#d98324; }
+    .est.a_faturar { background:#e4f0f5; color:#2e7d9a; } .est.a_faturar::before { background:#2e7d9a; }
+    .est.faturado { background:#efe9f8; color:#7a5cbf; } .est.faturado::before { background:#7a5cbf; }
+    .est.pago { background:var(--st-ok-bg); color:var(--st-ok-fg); } .est.pago::before { background:#1e7d4a; }
+
+    .vazio { text-align:center; padding:44px; color:var(--texto-suave); }
+    .totrow td { background:#f7f9fb; font-weight:700; color:var(--tinta); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="topo">
+      <div class="eyebrow">Módulo Financeiro</div>
+      <h1>Faturamento e cobrança</h1>
+      <p>Lance valores dos serviços e acompanhe o fluxo até o pagamento. Fecha todo dia 30 no relatório de medição.</p>
+    </div>
+
+    <section class="metricas">
+      <div class="cartao metrica m1"><div class="num" id="mAFaturar">R$ 0</div><div class="rot">A faturar</div></div>
+      <div class="cartao metrica m2"><div class="num" id="mFaturado">R$ 0</div><div class="rot">Faturado (aguardando)</div></div>
+      <div class="cartao metrica m3"><div class="num" id="mPago">R$ 0</div><div class="rot">Recebido</div></div>
+      <div class="cartao metrica m4"><div class="num" id="mTotal">R$ 0</div><div class="rot">Total lançado</div></div>
+    </section>
+
+    <div class="barra">
+      <input type="search" id="busca" placeholder="Buscar empresa ou funcionário..." />
+      <select id="filtroEmpresa"><option value="">Todas as empresas</option></select>
+      <select id="filtroEtapa">
+        <option value="">Todas as etapas</option>
+        <option value="valor">Definir valor</option>
+        <option value="negociacao">Em negociação</option>
+        <option value="a_faturar">A faturar</option>
+        <option value="faturado">Faturado</option>
+        <option value="pago">Pago</option>
+      </select>
+      <a href="medicao.html" class="btn btn-marca" style="margin-left:auto;">
+        Relatório de medição (dia 30)
+      </a>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th><th>Funcionário</th><th>Serviço</th>
+            <th>Valor</th><th>Condição</th><th>Etapa</th>
+          </tr>
+        </thead>
+        <tbody id="corpo"><tr><td colspan="6" class="vazio">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { collection, getDocs, query, orderBy, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { ETAPAS_FIN, ETAPA_FIN_INICIAL, CONDICOES, moedaBR } from "./financeiro-fluxo.js";
+import { montarMenu } from "./menu.js";
+    import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
+
+montarMenu("financeiro");
+    iniciarAlertaVencimento(db);
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+  carregar();
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+let itens = [];
+
+async function carregar() {
+  const snap = await getDocs(query(collection(db,"documentos"), orderBy("criadoEm","desc")));
+  itens = snap.docs.map(d => {
+    const x = d.data();
+    return {
+      id: d.id,
+      empresa: x.empresaRazao || "—",
+      funcionario: x.funcionarioNome || "",
+      servico: x.documento || x.tipo || "—",
+      valor: x.finValor ?? "",
+      condicao: x.finCondicao ?? "",
+      etapa: x.finEtapa ?? ETAPA_FIN_INICIAL,
+    };
+  });
+  // popular filtro de empresas
+  const empresas = [...new Set(itens.map(i => i.empresa))].sort();
+  const fe = document.getElementById("filtroEmpresa");
+  empresas.forEach(e => { const o=document.createElement("option"); o.value=e; o.textContent=e; fe.appendChild(o); });
+  render();
+}
+
+function calcularMetricas() {
+  let aFaturar=0, faturado=0, pago=0, total=0;
+  itens.forEach(i => {
+    const v = Number(i.valor)||0;
+    total += v;
+    if (i.etapa==="a_faturar") aFaturar += v;
+    else if (i.etapa==="faturado") faturado += v;
+    else if (i.etapa==="pago") pago += v;
+  });
+  document.getElementById("mAFaturar").textContent = moedaBR(aFaturar);
+  document.getElementById("mFaturado").textContent = moedaBR(faturado);
+  document.getElementById("mPago").textContent = moedaBR(pago);
+  document.getElementById("mTotal").textContent = moedaBR(total);
+}
+
+function render() {
+  const corpo = document.getElementById("corpo");
+  const termo = document.getElementById("busca").value.toLowerCase().trim();
+  const fEmp = document.getElementById("filtroEmpresa").value;
+  const fEt = document.getElementById("filtroEtapa").value;
+
+  const lista = itens.filter(i => {
+    const txt = !termo || i.empresa.toLowerCase().includes(termo) || i.funcionario.toLowerCase().includes(termo);
+    const emp = !fEmp || i.empresa === fEmp;
+    const et = !fEt || i.etapa === fEt;
+    return txt && emp && et;
+  });
+
+  calcularMetricas();
+
+  if (!lista.length) { corpo.innerHTML = `<tr><td colspan="6" class="vazio">Nenhum serviço encontrado.</td></tr>`; return; }
+
+  const condOpts = (sel) => CONDICOES.map(c => `<option value="${c.id}" ${sel===c.id?"selected":""}>${c.label}</option>`).join("");
+  const etOpts = (sel) => ETAPAS_FIN.map(e => `<option value="${e.id}" ${sel===e.id?"selected":""}>${e.titulo}</option>`).join("");
+
+  corpo.innerHTML = lista.map(i => `
+    <tr data-id="${i.id}">
+      <td class="cli">${i.empresa}</td>
+      <td>${i.funcionario || "—"}</td>
+      <td>${i.servico}</td>
+      <td><input class="valor-input" type="number" step="0.01" placeholder="0,00" value="${i.valor}" data-c="valor" /></td>
+      <td><select class="sel-mini" data-c="condicao"><option value="">—</option>${condOpts(i.condicao)}</select></td>
+      <td><select class="sel-mini" data-c="etapa">${etOpts(i.etapa)}</select></td>
+    </tr>`).join("") +
+    `<tr class="totrow"><td colspan="3">Total filtrado</td>
+      <td colspan="3">${moedaBR(lista.reduce((s,i)=>s+(Number(i.valor)||0),0))}</td></tr>`;
+
+  // salvar edições
+  corpo.querySelectorAll("tr[data-id]").forEach(tr => {
+    tr.querySelectorAll("[data-c]").forEach(el => {
+      el.addEventListener("change", async () => {
+        const id = tr.dataset.id;
+        const item = itens.find(x => x.id === id);
+        const campo = el.dataset.c;
+        item[campo] = el.value;
+        const map = { valor:"finValor", condicao:"finCondicao", etapa:"finEtapa" };
+        try {
+          await updateDoc(doc(db,"documentos",id), {
+            [map[campo]]: campo==="valor" ? (Number(el.value)||0) : el.value,
+            finAtualizadoEm: Timestamp.now(),
+          });
+          if (campo==="valor" || campo==="etapa") { render(); }
+          else calcularMetricas();
+        } catch(err){ console.error(err); alert("Erro ao salvar: "+err.message); }
+      });
+    });
+  });
+}
+
+["busca","filtroEmpresa","filtroEtapa"].forEach(id =>
+  document.getElementById(id).addEventListener("input", render));
+</script>
+</body>
+</html>
