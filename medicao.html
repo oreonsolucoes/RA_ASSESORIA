@@ -172,8 +172,9 @@ function gerar() {
   lista.forEach(t => { (porEmp[t.empresa] ||= []).push(t); });
 
   const nomesMes = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
-  const datas = lista.map(t=>t.emissao).sort((a,b)=>a-b);
-  const periodo = `${datas[0].toLocaleDateString("pt-BR")} a ${datas[datas.length-1].toLocaleDateString("pt-BR")}`;
+  // Período = do dia 01 ao último dia do mês de referência selecionado
+  const ultimoDia = new Date(ano, mes, 0).getDate(); // dia 0 do mês seguinte = último dia deste mês
+  const periodo = `01/${String(mes).padStart(2,"0")}/${ano} a ${String(ultimoDia).padStart(2,"0")}/${String(mes).padStart(2,"0")}/${ano}`;
   const totalGeral = lista.reduce((s,t)=>s+t.valor,0);
 
   // valores dos novos campos editáveis
