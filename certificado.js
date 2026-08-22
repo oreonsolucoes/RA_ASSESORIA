@@ -142,11 +142,13 @@ function frente(doc, W, H, d) {
   doc.setFontSize(18);
   doc.text((d.nome || "").toUpperCase(), W / 2, 78, { align: "center" });
 
-  // Corpo justificado com negrito no nome do treinamento
+  // Corpo justificado com negrito no nome do treinamento.
+  // A frase de carga horária só aparece quando há carga (NR-01 não tem).
+  const trechoCarga = d.cargaHoraria ? `, com carga horária de ${d.cargaHoraria}` : "";
   const partes = [
     { t: `Portador do CPF ${d.cpfFmt}, pela participação do `, b: false },
     { t: `${d.treinamentoNome}`, b: true },
-    { t: ` no dia ${d.dataTreino}, com carga horária de ${d.cargaHoraria}, pela Empresa Richard ` +
+    { t: ` no dia ${d.dataTreino}${trechoCarga}, pela Empresa Richard ` +
          `Consultoria em Segurança do Trabalho nas dependências da Empresa ${d.empresaRazao}` +
          `${d.endereco ? ", localizada na " + d.endereco : ""}, conforme conteúdo programático, vide verso:`, b: false },
   ];
