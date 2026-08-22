@@ -129,19 +129,31 @@ function frente(doc, W, H, d) {
     } catch (e) { console.warn("Logo:", e); }
   }
 
-  // Selo losango amarelo
+  // Selo da NR: usa imagem se fornecida (seloDataUrl), senão desenha losango
   const cx = W - 34, cy = 38;
   const lado = 12.5;
-  // desenha losango como polígono
-  doc.setFillColor(AMARELO); doc.setDrawColor(PRETO); doc.setLineWidth(1.2);
-  doc.lines(
-    [[lado, lado], [lado, -lado], [-lado, -lado], [-lado, lado]],
-    cx, cy - lado, [1, 1], "FD", true
-  );
-  doc.setTextColor(PRETO); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
-  const sp = (d.selo || "NR").split(" ");
-  doc.text(sp[0] || "NR", cx, cy - 1, { align: "center" });
-  doc.text(sp[1] || "", cx, cy + 6, { align: "center" });
+  if (d.seloDataUrl) {
+    try {
+      // imagem quadrada ~26x26mm centrada na posição do selo
+      doc.addImage(d.seloDataUrl, "PNG", cx - 13, cy - 13, 26, 26);
+    } catch (e) {
+      console.warn("Selo (imagem):", e);
+      desenharLosango();
+    }
+  } else {
+    desenharLosango();
+  }
+  function desenharLosango() {
+    doc.setFillColor(AMARELO); doc.setDrawColor(PRETO); doc.setLineWidth(1.2);
+    doc.lines(
+      [[lado, lado], [lado, -lado], [-lado, -lado], [-lado, lado]],
+      cx, cy - lado, [1, 1], "FD", true
+    );
+    doc.setTextColor(PRETO); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+    const sp = (d.selo || "NR").split(" ");
+    doc.text(sp[0] || "NR", cx, cy - 1, { align: "center" });
+    doc.text(sp[1] || "", cx, cy + 6, { align: "center" });
+  }
 
   // Título
   doc.setTextColor(PRETO); doc.setFont("helvetica", "bold"); doc.setFontSize(28);
