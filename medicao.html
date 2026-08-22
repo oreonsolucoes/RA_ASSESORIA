@@ -192,17 +192,19 @@ function gerar() {
     ? new Date(vencInput+"T00:00:00").toLocaleDateString("pt-BR")
     : "—";
 
-  // logo antes do título, se configurado
+  // logo à ESQUERDA do título (lado a lado), se configurado
   const logoHTML = logoDataUrl
-    ? `<img src="${logoDataUrl}" alt="Logo" style="height:52px;margin-bottom:14px;" />`
+    ? `<img src="${logoDataUrl}" alt="Logo" style="height:56px;flex-shrink:0;" />`
     : "";
 
   let html = `<div class="relatorio">
-    ${logoHTML}
     <div class="rel-cab">
-      <div>
-        <div class="rtit">Relatório de Medição</div>
-        <div class="rsub">Richard Consultoria em Segurança do Trabalho</div>
+      <div style="display:flex; align-items:center; gap:16px;">
+        ${logoHTML}
+        <div>
+          <div class="rtit">Relatório de Medição</div>
+          <div class="rsub">Richard Consultoria em Segurança do Trabalho</div>
+        </div>
       </div>
       <div class="rperiodo">
         Referência: ${nomesMes[mes-1]}/${ano}<br>
