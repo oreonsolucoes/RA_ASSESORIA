@@ -22,11 +22,11 @@ export const VIGENCIAS = {
 
   // --- Itens do FUNCIONÁRIO ---
   "ASO":            { label: "ASO — Atestado de Saúde Ocupacional", meses: 12, escopo: "funcionario" },
-  "NR01":           { label: "NR-01 — Ordem de Serviço", meses: null, escopo: "funcionario" },
+  "NR01":           { label: "NR-01 — Ordem de Serviço", meses: null, escopo: "funcionario", semCarga: true },
   "NR06":           { label: "NR-06 — EPI", meses: 24, escopo: "funcionario" },
   "NR10":           { label: "NR-10 — Elétrica", meses: 24, escopo: "funcionario" },
   "NR11":           { label: "NR-11 — Içamento de Carga", meses: 12, escopo: "funcionario" },
-  "NR12":           { label: "NR-12 — Máquinas e Equipamentos", meses: 12, escopo: "funcionario" },
+  "NR12":           { label: "NR-12 — Máquinas e Equipamentos", meses: 12, escopo: "funcionario", pedeEquipamento: true },
   "NR17":           { label: "NR-17 — Ergonomia", meses: 12, escopo: "funcionario" },
   "NR18":           { label: "NR-18 — Construção Civil", meses: 12, escopo: "funcionario" },
   "NR20":           { label: "NR-20 — Inflamáveis", meses: 12, escopo: "funcionario" },
