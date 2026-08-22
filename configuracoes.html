@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações — Richard Assessoria</title>
+  <link rel="stylesheet" href="estilo.css" />
+  <style>
+    .form-wrap { max-width: 640px; }
+    .add-linha { display:flex; gap:10px; margin-bottom:18px; }
+    .add-linha input { flex:1; padding:11px 13px; border:1px solid var(--borda); border-radius:9px; font-family:'Inter'; font-size:.95rem; }
+    .add-linha input:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
+
+    .lista-pg { display:flex; flex-direction:column; gap:8px; }
+    .item-pg { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--borda); border-radius:9px; padding:10px 12px; }
+    .item-pg input { flex:1; border:0; font-family:'Inter'; font-size:.92rem; color:var(--texto); background:transparent; padding:4px; }
+    .item-pg input:focus { outline:none; background:#f7f9fb; border-radius:6px; }
+    .item-pg .drag { color:var(--texto-suave); font-size:.9rem; cursor:default; }
+    .item-pg button { border:0; background:transparent; cursor:pointer; color:var(--texto-suave); padding:5px 7px; border-radius:6px; }
+    .item-pg button:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .item-pg button svg { width:16px; height:16px; display:block; }
+
+    .msg { margin-top:16px; font-size:.9rem; padding:12px 15px; border-radius:9px; display:none; }
+    .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
+    .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
+    .vazio { text-align:center; padding:30px; color:var(--texto-suave); font-size:.9rem; }
+    .secao-tit { font-size:.78rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--texto-suave); margin-bottom:14px; }
+    .dica-topo { font-size:.85rem; color:var(--texto-suave); margin-bottom:18px; background:#f0f3f8; padding:11px 14px; border-radius:9px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="topo">
+      <div class="eyebrow">Configurações</div>
+      <h1>Dados de pagamento</h1>
+      <p>Gerencie as opções que aparecem no menu do relatório de medição.</p>
+    </div>
+
+    <div class="cartao form-wrap" style="padding:26px;">
+      <div class="dica-topo">
+        Estas opções alimentam o campo "Dados de pagamento" do relatório de medição.
+        Adicione, edite ou remova conforme suas contas. As alterações salvam no sistema.
+      </div>
+
+      <div class="secao-tit">Adicionar nova opção</div>
+      <div class="add-linha">
+        <input type="text" id="novaOpcao" placeholder="Ex.: PIX 07.014.529/0001-03 — Richard Assessoria" />
+        <button class="btn btn-primario" id="btnAdd">Adicionar</button>
+      </div>
+
+      <div class="secao-tit">Opções cadastradas</div>
+      <div class="lista-pg" id="lista"><div class="vazio">Carregando...</div></div>
+
+      <div class="msg" id="msg"></div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { DADOS_PAGAMENTO } from "./config-empresa.js";
+import { montarMenu } from "./menu.js";
+
+montarMenu("configuracoes");
+onAuthStateChanged(auth, u => {
+  if (!u) { location.href="index.html"; return; }
+  document.getElementById("userEmail").textContent = u.email;
+  carregar();
+});
+document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
+
+// Documento único no Firestore: configuracoes/pagamento -> { opcoes: [...] }
+const REF = doc(db, "configuracoes", "pagamento");
+let opcoes = [];
+
+async function carregar() {
+  try {
+    const snap = await getDoc(REF);
+    if (snap.exists() && Array.isArray(snap.data().opcoes)) {
+      opcoes = snap.data().opcoes;
+    } else {
+      // primeira vez: usa as opções do config-empresa.js como base
+      opcoes = [...DADOS_PAGAMENTO];
+      await salvarBanco(); // grava a base inicial
+    }
+    render();
+  } catch (e) {
+    console.error(e);
+    document.getElementById("lista").innerHTML = `<div class="vazio">Erro ao carregar: ${e.message}</div>`;
+  }
+}
+
+async function salvarBanco() {
+  await setDoc(REF, {
+    opcoes,
+    atualizadoEm: Timestamp.now(),
+    atualizadoPor: auth.currentUser?.email ?? null,
+  });
+}
+
+function mostrar(t, tipo) {
+  const m = document.getElementById("msg");
+  m.textContent = t; m.className = "msg " + tipo;
+  if (tipo === "ok") setTimeout(() => { m.className = "msg"; }, 2500);
+}
+
+function render() {
+  const lista = document.getElementById("lista");
+  if (opcoes.length === 0) {
+    lista.innerHTML = `<div class="vazio">Nenhuma opção cadastrada. Adicione a primeira acima.</div>`;
+    return;
+  }
+  const iconDel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
+  lista.innerHTML = opcoes.map((op, i) => `
+    <div class="item-pg" data-i="${i}">
+      <span class="drag">☰</span>
+      <input type="text" value="${op.replace(/"/g,'&quot;')}" data-i="${i}" />
+      <button data-del="${i}" title="Remover">${iconDel}</button>
+    </div>`).join("");
+
+  // editar ao sair do campo
+  lista.querySelectorAll("input[data-i]").forEach(inp => {
+    inp.addEventListener("change", async () => {
+      const i = Number(inp.dataset.i);
+      opcoes[i] = inp.value.trim();
+      // remove vazios
+      opcoes = opcoes.filter(o => o.length > 0);
+      try { await salvarBanco(); mostrar("Alterações salvas.", "ok"); render(); }
+      catch(e){ mostrar("Erro ao salvar: "+e.message, "err"); }
+    });
+  });
+  // remover
+  lista.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const i = Number(btn.dataset.del);
+      if (!confirm(`Remover "${opcoes[i]}"?`)) return;
+      opcoes.splice(i, 1);
+      try { await salvarBanco(); mostrar("Opção removida.", "ok"); render(); }
+      catch(e){ mostrar("Erro ao remover: "+e.message, "err"); }
+    });
+  });
+}
+
+document.getElementById("btnAdd").addEventListener("click", async () => {
+  const inp = document.getElementById("novaOpcao");
+  const val = inp.value.trim();
+  if (!val) { mostrar("Digite uma opção antes de adicionar.", "err"); return; }
+  if (opcoes.includes(val)) { mostrar("Essa opção já existe.", "err"); return; }
+  opcoes.push(val);
+  try {
+    await salvarBanco();
+    inp.value = "";
+    mostrar("Opção adicionada.", "ok");
+    render();
+  } catch(e){ mostrar("Erro ao adicionar: "+e.message, "err"); }
+});
+document.getElementById("novaOpcao").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("btnAdd").click();
+});
+</script>
+</body>
+</html>
