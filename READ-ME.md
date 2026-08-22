@@ -59,3 +59,14 @@ Para parar: Ctrl + C.
 - Colar a URL raw da assinatura em config-empresa.js
 - Fornecer os conteúdos programáticos das outras NRs em conteudos.js
 - Importar os certificados existentes pela tela de importação
+
+## Atualizações (reunião com cliente)
+- Relatório de medição: logo no topo, funcionário solicitante editável,
+  dados de pagamento em menu suspenso (edite a lista em config-empresa.js),
+  e vencimento por calendário (no lugar do "dia 30" fixo).
+- Cadastro de empresa: novo campo Endereço, usado automaticamente no certificado.
+- Certificado NR-01: sai sem carga horária (campo some do formulário).
+- Certificado NR-12: novo campo "equipamento instruído", incluído no nome do treinamento.
+
+## Onde editar os dados de pagamento do relatório
+Abra config-empresa.js e edite a lista DADOS_PAGAMENTO (uma opção por linha).
