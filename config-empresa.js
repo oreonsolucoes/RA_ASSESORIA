@@ -24,3 +24,13 @@ export const ASSINATURA_INSTRUTOR_URL = "assinatura.png";
 // (Opcional) Logo da Richard Assessoria — mesma lógica (arquivo local ou raw).
 // Deixe "" para manter o selo "RA" atual.
 export const LOGO_URL = "";
+
+// Opções de "dados de pagamento" que aparecem no menu suspenso do
+// relatório de medição. Edite/adicione conforme suas contas.
+export const DADOS_PAGAMENTO = [
+  "PIX: 07.014.529/0001-03 (CNPJ) — Richard Assessoria",
+  "Banco do Brasil — Ag. 0000-0 / C/C 00000-0",
+  "Transferência/PIX — consultar contato",
+  "Boleto bancário",
+  "Dinheiro / à vista",
+];
