@@ -6,59 +6,281 @@
   <title>Configurações — Richard Assessoria</title>
   <link rel="stylesheet" href="estilo.css" />
   <style>
-    .form-wrap { max-width: 640px; }
+    /* Abas */
+    .abas { display:flex; gap:4px; border-bottom:2px solid var(--borda); margin-bottom:24px; }
+    .aba { padding:10px 20px; border:0; background:transparent; cursor:pointer;
+      font-family:'Inter'; font-size:.9rem; font-weight:600; color:var(--texto-suave);
+      border-bottom:2px solid transparent; margin-bottom:-2px; transition:.15s; }
+    .aba.ativa { color:var(--tinta); border-bottom-color:var(--tinta-2); }
+    .painel { display:none; } .painel.ativo { display:block; }
+
+    /* Pagamentos */
     .add-linha { display:flex; gap:10px; margin-bottom:18px; }
     .add-linha input { flex:1; padding:11px 13px; border:1px solid var(--borda); border-radius:9px; font-family:'Inter'; font-size:.95rem; }
-    .add-linha input:focus { outline:none; border-color:var(--tinta-2); box-shadow:0 0 0 3px rgba(28,49,87,.08); }
-
+    .add-linha input:focus { outline:none; border-color:var(--tinta-2); }
     .lista-pg { display:flex; flex-direction:column; gap:8px; }
-    .item-pg { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--borda); border-radius:9px; padding:10px 12px; }
-    .item-pg input { flex:1; border:0; font-family:'Inter'; font-size:.92rem; color:var(--texto); background:transparent; padding:4px; }
+    .item-pg { display:flex; align-items:center; gap:10px; background:#fff;
+      border:1px solid var(--borda); border-radius:9px; padding:10px 12px; }
+    .item-pg input { flex:1; border:0; font-family:'Inter'; font-size:.92rem;
+      color:var(--texto); background:transparent; padding:4px; }
     .item-pg input:focus { outline:none; background:#f7f9fb; border-radius:6px; }
     .item-pg .drag { color:var(--texto-suave); font-size:.9rem; cursor:default; }
-    .item-pg button { border:0; background:transparent; cursor:pointer; color:var(--texto-suave); padding:5px 7px; border-radius:6px; }
+    .item-pg button { border:0; background:transparent; cursor:pointer;
+      color:var(--texto-suave); padding:5px 7px; border-radius:6px; }
     .item-pg button:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
     .item-pg button svg { width:16px; height:16px; display:block; }
 
-    .msg { margin-top:16px; font-size:.9rem; padding:12px 15px; border-radius:9px; display:none; }
+    /* Templates */
+    .nr-grid { display:grid; grid-template-columns:240px 1fr; gap:20px; align-items:start; }
+    .nr-lista { display:flex; flex-direction:column; gap:6px; }
+    .nr-item { padding:10px 14px; border:1px solid var(--borda); border-radius:9px;
+      background:#fff; cursor:pointer; font-size:.88rem; font-weight:600;
+      color:var(--tinta); transition:.1s; }
+    .nr-item:hover { background:#f0f4fb; }
+    .nr-item.ativo { background:var(--tinta); color:#fff; border-color:var(--tinta); }
+    .nr-item .tag { font-size:.72rem; font-weight:400; opacity:.75; display:block; margin-top:2px; }
+    .editor-nr { background:#fff; border:1px solid var(--borda); border-radius:12px; padding:22px; }
+    .editor-nr h3 { font-size:1rem; color:var(--tinta); margin-bottom:4px; }
+    .editor-nr .sub { font-size:.82rem; color:var(--texto-suave); margin-bottom:18px; }
+    .campo-ed { margin-bottom:15px; }
+    .campo-ed label { display:block; font-size:.8rem; font-weight:600;
+      color:var(--texto-suave); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
+    .campo-ed input, .campo-ed textarea {
+      width:100%; padding:10px 12px; border:1px solid var(--borda);
+      border-radius:8px; font-family:'Inter'; font-size:.9rem; background:#fff; box-sizing:border-box; }
+    .campo-ed input:focus, .campo-ed textarea:focus { outline:none; border-color:var(--tinta-2); }
+    .campo-ed textarea { min-height:80px; resize:vertical; }
+    .itens-lista { display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+    .item-conteudo { display:flex; gap:8px; align-items:center; }
+    .item-conteudo input { flex:1; padding:9px 11px; border:1px solid var(--borda);
+      border-radius:7px; font-family:'Inter'; font-size:.88rem; }
+    .item-conteudo input:focus { outline:none; border-color:var(--tinta-2); }
+    .item-conteudo button { border:0; background:transparent; cursor:pointer;
+      color:var(--texto-suave); padding:5px; border-radius:6px; flex-shrink:0; }
+    .item-conteudo button:hover { background:var(--st-vencido-bg); color:var(--st-vencido-forte); }
+    .item-conteudo button svg { width:15px; height:15px; display:block; }
+    .btn-add-item { border:1px dashed var(--borda); background:transparent;
+      width:100%; padding:9px; border-radius:7px; cursor:pointer; color:var(--texto-suave);
+      font-family:'Inter'; font-size:.85rem; }
+    .btn-add-item:hover { background:#f0f4fb; color:var(--tinta); border-color:var(--tinta-2); }
+    .aviso-null { background:#fff8e1; border:1px solid #f5c518; border-radius:8px;
+      padding:11px 14px; font-size:.84rem; color:#7a5c00; margin-bottom:14px; }
+
+    /* Aparência */
+    .ap-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:800px){ .ap-grid { grid-template-columns:1fr; } }
+    .campo-ap { margin-bottom:18px; }
+    .campo-ap label { display:block; font-size:.8rem; font-weight:600;
+      color:var(--texto-suave); margin-bottom:7px; text-transform:uppercase; letter-spacing:.4px; }
+    .campo-ap input[type=range] { width:100%; }
+    .campo-ap input[type=color] { width:48px; height:36px; padding:2px;
+      border:1px solid var(--borda); border-radius:7px; cursor:pointer; }
+    .campo-ap input[type=number], .campo-ap select {
+      width:100%; padding:9px 12px; border:1px solid var(--borda);
+      border-radius:8px; font-family:'Inter'; font-size:.92rem; background:#fff; }
+    .campo-ap .val { font-weight:600; color:var(--tinta-2); margin-left:8px; font-size:.88rem; }
+    .cor-linha { display:flex; align-items:center; gap:12px; }
+
+    /* Preview */
+    .preview-box { background:#fff; border:1px solid var(--borda); border-radius:10px;
+      padding:20px; margin-top:20px; }
+    .preview-box h4 { font-size:.82rem; font-weight:600; color:var(--texto-suave);
+      text-transform:uppercase; letter-spacing:.4px; margin-bottom:14px; }
+    .preview-cert { border:1px solid #ccc; border-radius:6px; padding:20px 24px;
+      font-family:'Times New Roman', serif; background:#fff; max-width:500px; margin:0 auto; }
+    .preview-cert .pv-barra { height:7px; border-radius:2px; margin-bottom:12px; }
+    .preview-cert .pv-titulo { letter-spacing:6px; font-weight:bold; margin-bottom:4px; }
+    .preview-cert .pv-sub { font-weight:bold; margin-bottom:12px; }
+    .preview-cert .pv-nome { font-weight:bold; font-size:1.1em; margin-bottom:12px; }
+    .preview-cert .pv-corpo { text-align:justify; line-height:1.6; margin-bottom:18px; }
+    .preview-cert .pv-assin { display:flex; justify-content:space-between;
+      border-top:1px solid #999; padding-top:8px; font-size:.78em; }
+
+    .msg { margin-top:14px; font-size:.88rem; padding:11px 14px; border-radius:9px; display:none; }
     .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
     .msg.err { background:var(--st-vencido-bg); color:var(--st-vencido-fg); display:block; }
-    .vazio { text-align:center; padding:30px; color:var(--texto-suave); font-size:.9rem; }
-    .secao-tit { font-size:.78rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--texto-suave); margin-bottom:14px; }
-    .dica-topo { font-size:.85rem; color:var(--texto-suave); margin-bottom:18px; background:#f0f3f8; padding:11px 14px; border-radius:9px; }
+    .dica { font-size:.83rem; color:var(--texto-suave); background:#f0f3f8;
+      padding:10px 14px; border-radius:9px; margin-bottom:18px; }
+    .secao-tit { font-size:.78rem; font-weight:600; letter-spacing:.5px;
+      text-transform:uppercase; color:var(--texto-suave); margin-bottom:12px; }
   </style>
 </head>
 <body>
 <div class="app">
   <aside class="lateral">
-    <div class="logo"><div class="selo">RA</div><div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
+    <div class="logo"><div class="selo">RA</div>
+      <div class="marca-txt">Richard Assessoria<small>Segurança do Trabalho</small></div></div>
     <nav class="nav" id="nav"></nav>
-    <div class="rodape"><div class="usuario" id="userEmail">—</div><button id="btnSair">Sair da conta</button></div>
+    <div class="rodape"><div class="usuario" id="userEmail">—</div>
+      <button id="btnSair">Sair da conta</button></div>
   </aside>
 
   <main class="conteudo">
     <div class="topo">
       <div class="eyebrow">Configurações</div>
-      <h1>Dados de pagamento</h1>
-      <p>Gerencie as opções que aparecem no menu do relatório de medição.</p>
+      <h1>Configurações do sistema</h1>
     </div>
 
-    <div class="cartao form-wrap" style="padding:26px;">
-      <div class="dica-topo">
-        Estas opções alimentam o campo "Dados de pagamento" do relatório de medição.
-        Adicione, edite ou remova conforme suas contas. As alterações salvam no sistema.
+    <!-- ABAS -->
+    <div class="abas">
+      <button class="aba ativa" data-aba="pagto">Dados de pagamento</button>
+      <button class="aba" data-aba="templates">Templates de certificado</button>
+      <button class="aba" data-aba="aparencia">Aparência do certificado</button>
+    </div>
+
+    <!-- PAINEL: PAGAMENTOS -->
+    <div class="painel ativo" id="painel-pagto">
+      <div class="cartao" style="max-width:640px; padding:26px;">
+        <div class="dica">Opções que aparecem no campo "Dados de pagamento" do relatório de medição.</div>
+        <div class="secao-tit">Adicionar nova opção</div>
+        <div class="add-linha">
+          <input type="text" id="novaOpcao" placeholder="Ex.: PIX 07.014.529/0001-03 — Richard Assessoria" />
+          <button class="btn btn-primario" id="btnAdd">Adicionar</button>
+        </div>
+        <div class="secao-tit">Opções cadastradas</div>
+        <div class="lista-pg" id="lista-pg"></div>
+        <div class="msg" id="msg-pg"></div>
       </div>
+    </div>
 
-      <div class="secao-tit">Adicionar nova opção</div>
-      <div class="add-linha">
-        <input type="text" id="novaOpcao" placeholder="Ex.: PIX 07.014.529/0001-03 — Richard Assessoria" />
-        <button class="btn btn-primario" id="btnAdd">Adicionar</button>
+    <!-- PAINEL: TEMPLATES -->
+    <div class="painel" id="painel-templates">
+      <div class="nr-grid">
+        <!-- lista de NRs -->
+        <div>
+          <div class="secao-tit" style="margin-bottom:10px;">Selecione a NR</div>
+          <div class="nr-lista" id="nr-lista"></div>
+        </div>
+        <!-- editor -->
+        <div class="editor-nr" id="editor-nr">
+          <p style="color:var(--texto-suave); font-size:.9rem;">
+            Selecione uma NR à esquerda para editar seu template.
+          </p>
+        </div>
       </div>
+    </div>
 
-      <div class="secao-tit">Opções cadastradas</div>
-      <div class="lista-pg" id="lista"><div class="vazio">Carregando...</div></div>
+    <!-- PAINEL: APARÊNCIA -->
+    <div class="painel" id="painel-aparencia">
+      <div style="display:grid; grid-template-columns:1fr 420px; gap:22px; align-items:start;">
+        <div class="cartao" style="padding:24px;">
+          <div class="dica">Alterações aplicam a todos os certificados emitidos a partir de agora.</div>
 
-      <div class="msg" id="msg"></div>
+          <div class="secao-tit">Tipografia</div>
+          <div class="ap-grid">
+            <div class="campo-ap">
+              <label>Fonte do corpo <span class="val" id="vFontCorpo"></span></label>
+              <input type="range" id="fontCorpo" min="10" max="16" step="0.5" />
+            </div>
+            <div class="campo-ap">
+              <label>Espaçamento entre linhas <span class="val" id="vLeading"></span></label>
+              <input type="range" id="leading" min="5" max="10" step="0.5" />
+            </div>
+            <div class="campo-ap">
+              <label>Tamanho do título</label>
+              <select id="tamanhoTitulo">
+                <option value="24">Pequeno (24pt)</option>
+                <option value="28">Médio (28pt)</option>
+                <option value="30" selected>Grande (30pt) — padrão</option>
+                <option value="34">Extra grande (34pt)</option>
+              </select>
+            </div>
+            <div class="campo-ap">
+              <label>Tamanho do nome</label>
+              <select id="tamanhoNome">
+                <option value="16">Pequeno (16pt)</option>
+                <option value="18" selected>Médio (18pt) — padrão</option>
+                <option value="20">Grande (20pt)</option>
+                <option value="22">Extra grande (22pt)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="secao-tit" style="margin-top:10px;">Cores</div>
+          <div class="ap-grid">
+            <div class="campo-ap">
+              <label>Cor da barra superior</label>
+              <div class="cor-linha">
+                <input type="color" id="corBarra" value="#8b0000" />
+                <span style="font-size:.85rem;color:var(--texto-suave);">padrão: vinho (#8b0000)</span>
+              </div>
+            </div>
+            <div class="campo-ap">
+              <label>Cor do rodapé</label>
+              <div class="cor-linha">
+                <input type="color" id="corRodape" value="#8b0000" />
+                <span style="font-size:.85rem;color:var(--texto-suave);">padrão: vinho (#8b0000)</span>
+              </div>
+            </div>
+            <div class="campo-ap">
+              <label>Cor do texto do nome</label>
+              <div class="cor-linha">
+                <input type="color" id="corNome" value="#111111" />
+              </div>
+            </div>
+            <div class="campo-ap">
+              <label>Cor da borda externa</label>
+              <div class="cor-linha">
+                <input type="color" id="corBorda" value="#cccccc" />
+              </div>
+            </div>
+          </div>
+
+          <div class="secao-tit" style="margin-top:10px;">Posição das assinaturas</div>
+          <div class="ap-grid">
+            <div class="campo-ap">
+              <label>Distância do topo (mm) <span class="val" id="vYAssin"></span></label>
+              <input type="range" id="yAssin" min="120" max="190" step="5" />
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px; margin-top:10px;">
+            <button class="btn btn-primario" id="btnSalvarAp">Salvar aparência</button>
+            <button class="btn" id="btnResetAp" style="background:#eef1f6; color:var(--tinta);">
+              Restaurar padrão
+            </button>
+          </div>
+          <div class="msg" id="msg-ap"></div>
+        </div>
+
+        <!-- Preview -->
+        <div>
+          <div class="preview-box">
+            <h4>Preview (aproximado)</h4>
+            <div class="preview-cert" id="prevCert">
+              <div class="pv-barra" id="pvBarra"></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <div class="pv-titulo" id="pvTitulo">C E R T I F I C A D O</div>
+                  <div class="pv-sub">Conferido ao</div>
+                </div>
+                <div style="width:32px;height:32px;background:#f5c518;transform:rotate(45deg);border:1.5px solid #111;"></div>
+              </div>
+              <div class="pv-nome" id="pvNome">NOME DO PARTICIPANTE</div>
+              <div class="pv-corpo" id="pvCorpo">
+                Portador do CPF 000.000.000-00, pela participação do
+                <strong>Nome do Treinamento</strong> no dia 01/01/2026,
+                com carga horária de 8 horas, pela Empresa Richard
+                Consultoria em Segurança do Trabalho...
+              </div>
+              <div class="pv-assin" id="pvAssin">
+                <div>
+                  <strong>Elvio Richard Gonçalves</strong><br>
+                  ENG. SEGURANÇA DO TRABALHO<br>
+                  CREA nº 5070103113
+                </div>
+                <div>
+                  <strong>Participante</strong>
+                </div>
+              </div>
+              <div style="text-align:center; font-size:.72em; margin-top:14px;" id="pvRodape">
+                RICHARD Consultoria em Segurança do Trabalho<br>
+                Rua Tiro ao Pombo, 402 – São Paulo - SP
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -68,103 +290,308 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 import { doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { DADOS_PAGAMENTO } from "./config-empresa.js";
+import { CONTEUDOS } from "./conteudos.js";
+import { VIGENCIAS } from "./vigencias.js";
 import { montarMenu } from "./menu.js";
+import { iniciarAlertaVencimento } from "./alerta-vencimento.js";
 
 montarMenu("configuracoes");
+iniciarAlertaVencimento(db);
 onAuthStateChanged(auth, u => {
   if (!u) { location.href="index.html"; return; }
   document.getElementById("userEmail").textContent = u.email;
-  carregar();
+  iniciar();
 });
 document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
 
-// Documento único no Firestore: configuracoes/pagamento -> { opcoes: [...] }
-const REF = doc(db, "configuracoes", "pagamento");
-let opcoes = [];
-
-async function carregar() {
-  try {
-    const snap = await getDoc(REF);
-    if (snap.exists() && Array.isArray(snap.data().opcoes)) {
-      opcoes = snap.data().opcoes;
-    } else {
-      // primeira vez: usa as opções do config-empresa.js como base
-      opcoes = [...DADOS_PAGAMENTO];
-      await salvarBanco(); // grava a base inicial
-    }
-    render();
-  } catch (e) {
-    console.error(e);
-    document.getElementById("lista").innerHTML = `<div class="vazio">Erro ao carregar: ${e.message}</div>`;
-  }
-}
-
-async function salvarBanco() {
-  await setDoc(REF, {
-    opcoes,
-    atualizadoEm: Timestamp.now(),
-    atualizadoPor: auth.currentUser?.email ?? null,
+// ─── ABAS ──────────────────────────────────────────────────────────
+document.querySelectorAll(".aba").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".aba").forEach(b => b.classList.remove("ativa"));
+    document.querySelectorAll(".painel").forEach(p => p.classList.remove("ativo"));
+    btn.classList.add("ativa");
+    document.getElementById("painel-" + btn.dataset.aba).classList.add("ativo");
   });
+});
+
+// ─── INICIAR ───────────────────────────────────────────────────────
+async function iniciar() {
+  await Promise.all([carregarPagamentos(), carregarTemplates(), carregarAparencia()]);
 }
 
-function mostrar(t, tipo) {
-  const m = document.getElementById("msg");
-  m.textContent = t; m.className = "msg " + tipo;
-  if (tipo === "ok") setTimeout(() => { m.className = "msg"; }, 2500);
-}
+// ══════════════════════════════════════════════════════════════════
+// ABA 1 — PAGAMENTOS
+// ══════════════════════════════════════════════════════════════════
+const REF_PG = doc(db,"configuracoes","pagamento");
+let opcoesPg = [];
 
-function render() {
-  const lista = document.getElementById("lista");
-  if (opcoes.length === 0) {
-    lista.innerHTML = `<div class="vazio">Nenhuma opção cadastrada. Adicione a primeira acima.</div>`;
-    return;
-  }
-  const iconDel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
-  lista.innerHTML = opcoes.map((op, i) => `
+async function carregarPagamentos() {
+  try {
+    const snap = await getDoc(REF_PG);
+    opcoesPg = (snap.exists() && snap.data().opcoes?.length)
+      ? snap.data().opcoes : [...DADOS_PAGAMENTO];
+    if (!snap.exists()) await salvarPagamentos();
+    renderPg();
+  } catch(e) { console.error(e); }
+}
+async function salvarPagamentos() {
+  await setDoc(REF_PG, { opcoes: opcoesPg, atualizadoEm: Timestamp.now() });
+}
+function mostrarPg(t,tipo){
+  const m=document.getElementById("msg-pg"); m.textContent=t; m.className="msg "+tipo;
+  if(tipo==="ok") setTimeout(()=>{ m.className="msg"; },2500);
+}
+function renderPg() {
+  const lista = document.getElementById("lista-pg");
+  if(!opcoesPg.length){ lista.innerHTML='<div style="color:var(--texto-suave);font-size:.88rem;padding:10px;">Nenhuma opção cadastrada.</div>'; return; }
+  const delIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
+  lista.innerHTML = opcoesPg.map((op,i)=>`
     <div class="item-pg" data-i="${i}">
       <span class="drag">☰</span>
       <input type="text" value="${op.replace(/"/g,'&quot;')}" data-i="${i}" />
-      <button data-del="${i}" title="Remover">${iconDel}</button>
+      <button data-del="${i}">${delIcon}</button>
     </div>`).join("");
-
-  // editar ao sair do campo
-  lista.querySelectorAll("input[data-i]").forEach(inp => {
-    inp.addEventListener("change", async () => {
-      const i = Number(inp.dataset.i);
-      opcoes[i] = inp.value.trim();
-      // remove vazios
-      opcoes = opcoes.filter(o => o.length > 0);
-      try { await salvarBanco(); mostrar("Alterações salvas.", "ok"); render(); }
-      catch(e){ mostrar("Erro ao salvar: "+e.message, "err"); }
+  lista.querySelectorAll("input[data-i]").forEach(inp=>{
+    inp.addEventListener("change", async ()=>{
+      opcoesPg[Number(inp.dataset.i)]=inp.value.trim();
+      opcoesPg=opcoesPg.filter(o=>o.length>0);
+      try{ await salvarPagamentos(); mostrarPg("Salvo.","ok"); renderPg(); }
+      catch(e){ mostrarPg("Erro: "+e.message,"err"); }
     });
   });
-  // remover
-  lista.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const i = Number(btn.dataset.del);
-      if (!confirm(`Remover "${opcoes[i]}"?`)) return;
-      opcoes.splice(i, 1);
-      try { await salvarBanco(); mostrar("Opção removida.", "ok"); render(); }
-      catch(e){ mostrar("Erro ao remover: "+e.message, "err"); }
+  lista.querySelectorAll("[data-del]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      if(!confirm(`Remover "${opcoesPg[btn.dataset.del]}"?`)) return;
+      opcoesPg.splice(Number(btn.dataset.del),1);
+      try{ await salvarPagamentos(); mostrarPg("Removido.","ok"); renderPg(); }
+      catch(e){ mostrarPg("Erro: "+e.message,"err"); }
     });
   });
 }
-
-document.getElementById("btnAdd").addEventListener("click", async () => {
-  const inp = document.getElementById("novaOpcao");
-  const val = inp.value.trim();
-  if (!val) { mostrar("Digite uma opção antes de adicionar.", "err"); return; }
-  if (opcoes.includes(val)) { mostrar("Essa opção já existe.", "err"); return; }
-  opcoes.push(val);
-  try {
-    await salvarBanco();
-    inp.value = "";
-    mostrar("Opção adicionada.", "ok");
-    render();
-  } catch(e){ mostrar("Erro ao adicionar: "+e.message, "err"); }
+document.getElementById("btnAdd").addEventListener("click", async ()=>{
+  const inp=document.getElementById("novaOpcao");
+  const val=inp.value.trim();
+  if(!val){ mostrarPg("Digite uma opção.","err"); return; }
+  if(opcoesPg.includes(val)){ mostrarPg("Já existe.","err"); return; }
+  opcoesPg.push(val);
+  try{ await salvarPagamentos(); inp.value=""; mostrarPg("Adicionado.","ok"); renderPg(); }
+  catch(e){ mostrarPg("Erro: "+e.message,"err"); }
 });
-document.getElementById("novaOpcao").addEventListener("keydown", e => {
-  if (e.key === "Enter") document.getElementById("btnAdd").click();
+document.getElementById("novaOpcao").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("btnAdd").click(); });
+
+// ══════════════════════════════════════════════════════════════════
+// ABA 2 — TEMPLATES POR NR
+// ══════════════════════════════════════════════════════════════════
+const REF_TPL = doc(db,"configuracoes","templates");
+let templatesDB = {};   // { NR06: {itens,referencias,nomeCurto,selo}, ... }
+let nrAtiva = null;
+
+// Só NRs que geram certificado (escopo funcionario, não são laudos/PGR)
+const NRS_CERT = Object.entries(VIGENCIAS)
+  .filter(([,v]) => v.escopo === "funcionario")
+  .map(([k,v]) => ({ chave:k, label:v.label }));
+
+async function carregarTemplates() {
+  try {
+    const snap = await getDoc(REF_TPL);
+    templatesDB = snap.exists() ? (snap.data().nrs || {}) : {};
+    renderNrLista();
+  } catch(e) { console.error(e); }
+}
+async function salvarTemplates() {
+  await setDoc(REF_TPL, { nrs: templatesDB, atualizadoEm: Timestamp.now() });
+}
+
+function renderNrLista() {
+  const lista = document.getElementById("nr-lista");
+  lista.innerHTML = NRS_CERT.map(nr=>{
+    const temDB = !!templatesDB[nr.chave];
+    const temBase = !!(CONTEUDOS[nr.chave]?.itens?.length);
+    const status = temDB ? " 🟢" : temBase ? " 🟡" : " 🔴";
+    return `<div class="nr-item${nrAtiva===nr.chave?" ativo":""}" data-nr="${nr.chave}">
+      ${nr.label.split("—")[0].trim()} ${status}
+      <span class="tag">${nr.label.split("—")[1]?.trim()||""}</span>
+    </div>`;
+  }).join("");
+  lista.querySelectorAll(".nr-item").forEach(el=>{
+    el.addEventListener("click",()=>{ nrAtiva=el.dataset.nr; renderNrLista(); abrirEditorNr(el.dataset.nr); });
+  });
+}
+
+function abrirEditorNr(chave) {
+  const info = VIGENCIAS[chave];
+  // dados: prioriza banco, senão usa conteudos.js, senão vazio
+  const base = CONTEUDOS[chave];
+  const db_tpl = templatesDB[chave];
+  const itens = db_tpl?.itens ?? base?.itens ?? [];
+  const refs = db_tpl?.referencias ?? base?.referencias ?? "";
+  const nomeCurto = db_tpl?.nomeCurto ?? base?.nomeCurto ?? info.label;
+  const selo = db_tpl?.selo ?? base?.selo ?? info.label.split("—")[0].trim();
+
+  const delIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
+  const avisoNull = !CONTEUDOS[chave]?.itens?.length && !templatesDB[chave]
+    ? `<div class="aviso-null">⚠️ Esta NR não tem conteúdo base. Preencha os itens abaixo e salve.</div>` : "";
+
+  document.getElementById("editor-nr").innerHTML = `
+    <h3>${info.label}</h3>
+    <div class="sub">Edite o template deste certificado. Salvo, vale para todas as emissões futuras desta NR.</div>
+    ${avisoNull}
+    <div class="campo-ed">
+      <label>Nome do treinamento (aparece em negrito no certificado)</label>
+      <textarea id="tNomeCurto">${nomeCurto}</textarea>
+    </div>
+    <div class="campo-ed">
+      <label>Referências normativas</label>
+      <input type="text" id="tRefs" value="${refs}" placeholder="Ex.: NR 01 e NR 06" />
+    </div>
+    <div class="campo-ed">
+      <label>Itens do conteúdo programático (verso)</label>
+      <div class="itens-lista" id="itens-lista">
+        ${itens.map((it,i)=>`
+          <div class="item-conteudo" data-idx="${i}">
+            <input type="text" value="${it.replace(/"/g,'&quot;')}" data-idx="${i}" />
+            <button class="del-item" data-idx="${i}">${delIcon}</button>
+          </div>`).join("")}
+      </div>
+      <button class="btn-add-item" id="btnAddItem">+ Adicionar item</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-primario" id="btnSalvarTpl">Salvar template</button>
+      <button class="btn" id="btnResetTpl" style="background:#eef1f6;color:var(--tinta);">Restaurar base</button>
+    </div>
+    <div class="msg" id="msg-tpl"></div>`;
+
+  function lerItens() {
+    return [...document.querySelectorAll("#itens-lista .item-conteudo input")]
+      .map(i=>i.value.trim()).filter(Boolean);
+  }
+  function mostrarTpl(t,tipo){
+    const m=document.getElementById("msg-tpl"); m.textContent=t; m.className="msg "+tipo;
+    if(tipo==="ok") setTimeout(()=>{ m.className="msg"; },2500);
+  }
+
+  document.getElementById("btnAddItem").addEventListener("click",()=>{
+    const lista=document.getElementById("itens-lista");
+    const i=lista.querySelectorAll(".item-conteudo").length;
+    const d=document.createElement("div"); d.className="item-conteudo"; d.dataset.idx=i;
+    d.innerHTML=`<input type="text" placeholder="Novo item..." /><button class="del-item">${delIcon}</button>`;
+    lista.appendChild(d);
+    d.querySelector(".del-item").addEventListener("click",()=>d.remove());
+    d.querySelector("input").focus();
+  });
+  document.querySelectorAll(".del-item").forEach(b=>b.addEventListener("click",()=>b.closest(".item-conteudo").remove()));
+
+  document.getElementById("btnSalvarTpl").addEventListener("click", async ()=>{
+    const nomeCurtoVal = document.getElementById("tNomeCurto").value.trim();
+    const refsVal = document.getElementById("tRefs").value.trim();
+    const itensVal = lerItens();
+    if(!nomeCurtoVal){ mostrarTpl("Informe o nome do treinamento.","err"); return; }
+    templatesDB[chave] = { nomeCurto: nomeCurtoVal, referencias: refsVal, itens: itensVal, selo };
+    try{
+      await salvarTemplates(); mostrarTpl("Template salvo! Novas emissões usarão este conteúdo.","ok");
+      renderNrLista();
+    } catch(e){ mostrarTpl("Erro: "+e.message,"err"); }
+  });
+
+  document.getElementById("btnResetTpl").addEventListener("click", async ()=>{
+    if(!confirm("Remover customização e voltar ao conteúdo base?")) return;
+    delete templatesDB[chave];
+    try{
+      await salvarTemplates(); mostrarTpl("Restaurado para o conteúdo base.","ok");
+      abrirEditorNr(chave); renderNrLista();
+    } catch(e){ mostrarTpl("Erro: "+e.message,"err"); }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ABA 3 — APARÊNCIA GLOBAL
+// ══════════════════════════════════════════════════════════════════
+const REF_AP = doc(db,"configuracoes","aparencia");
+const PADRAO_AP = {
+  fontCorpo: 13.5, leading: 7, tamanhoTitulo: 30, tamanhoNome: 18,
+  corBarra: "#8b0000", corRodape: "#8b0000", corNome: "#111111", corBorda: "#cccccc",
+  yAssin: 150,
+};
+
+let aparencia = { ...PADRAO_AP };
+
+async function carregarAparencia() {
+  try {
+    const snap = await getDoc(REF_AP);
+    if(snap.exists()) aparencia = { ...PADRAO_AP, ...snap.data().valores };
+    aplicarControles();
+    atualizarPreview();
+  } catch(e) { console.error(e); }
+}
+
+function aplicarControles() {
+  for(const [k,v] of Object.entries(aparencia)) {
+    const el = document.getElementById(k);
+    if(!el) continue;
+    el.value = v;
+  }
+  atualizarLabels();
+}
+function atualizarLabels() {
+  document.getElementById("vFontCorpo").textContent = aparencia.fontCorpo + "pt";
+  document.getElementById("vLeading").textContent = aparencia.leading + "pt";
+  document.getElementById("vYAssin").textContent = aparencia.yAssin + "mm";
+}
+function lerControles() {
+  return {
+    fontCorpo: parseFloat(document.getElementById("fontCorpo").value),
+    leading: parseFloat(document.getElementById("leading").value),
+    tamanhoTitulo: parseInt(document.getElementById("tamanhoTitulo").value),
+    tamanhoNome: parseInt(document.getElementById("tamanhoNome").value),
+    corBarra: document.getElementById("corBarra").value,
+    corRodape: document.getElementById("corRodape").value,
+    corNome: document.getElementById("corNome").value,
+    corBorda: document.getElementById("corBorda").value,
+    yAssin: parseInt(document.getElementById("yAssin").value),
+  };
+}
+function atualizarPreview() {
+  const ap = lerControles();
+  document.getElementById("pvBarra").style.background = ap.corBarra;
+  document.getElementById("pvTitulo").style.fontSize = (ap.tamanhoTitulo/2.5)+"px";
+  document.getElementById("pvNome").style.fontSize = (ap.tamanhoNome/2)+"px";
+  document.getElementById("pvNome").style.color = ap.corNome;
+  document.getElementById("pvCorpo").style.fontSize = (ap.fontCorpo/1.5)+"px";
+  document.getElementById("pvCorpo").style.lineHeight = (ap.leading/4)+"";
+  document.getElementById("pvRodape").style.color = ap.corRodape;
+  document.getElementById("pvAssin").style.marginTop = ((ap.yAssin-120)/30)+"px";
+  atualizarLabels();
+}
+
+["fontCorpo","leading","yAssin"].forEach(id=>{
+  document.getElementById(id).addEventListener("input",()=>{ aparencia[id]=parseFloat(document.getElementById(id).value); atualizarPreview(); });
+});
+["tamanhoTitulo","tamanhoNome","corBarra","corRodape","corNome","corBorda"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",()=>{ aparencia[id]=document.getElementById(id).value; atualizarPreview(); });
+  document.getElementById(id).addEventListener("input",()=>{ aparencia[id]=document.getElementById(id).value; atualizarPreview(); });
+});
+
+function mostrarAp(t,tipo){
+  const m=document.getElementById("msg-ap"); m.textContent=t; m.className="msg "+tipo;
+  if(tipo==="ok") setTimeout(()=>{ m.className="msg"; },2500);
+}
+
+document.getElementById("btnSalvarAp").addEventListener("click", async ()=>{
+  aparencia = lerControles();
+  try{
+    await setDoc(REF_AP,{valores:aparencia, atualizadoEm:Timestamp.now()});
+    mostrarAp("Aparência salva! Novas emissões usarão estas configurações.","ok");
+  } catch(e){ mostrarAp("Erro: "+e.message,"err"); }
+});
+
+document.getElementById("btnResetAp").addEventListener("click", async ()=>{
+  if(!confirm("Restaurar todas as configurações de aparência para o padrão original?")) return;
+  aparencia = {...PADRAO_AP};
+  aplicarControles(); atualizarPreview();
+  try{
+    await setDoc(REF_AP,{valores:aparencia, atualizadoEm:Timestamp.now()});
+    mostrarAp("Padrão restaurado.","ok");
+  } catch(e){ mostrarAp("Erro: "+e.message,"err"); }
 });
 </script>
 </body>
