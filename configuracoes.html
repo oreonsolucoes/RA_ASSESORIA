@@ -394,6 +394,7 @@ function abrirEditorNr(chave) {
   const refs = db_tpl?.referencias ?? base?.referencias ?? "";
   const nomeCurto = db_tpl?.nomeCurto ?? base?.nomeCurto ?? info.label;
   const selo = db_tpl?.selo ?? base?.selo ?? info.label.split("—")[0].trim();
+  const seloArquivo = db_tpl?.seloArquivo ?? "";
 
   const delIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>`;
   const avisoNull = !CONTEUDOS[chave]?.itens?.length && !templatesDB[chave]
@@ -410,6 +411,13 @@ function abrirEditorNr(chave) {
     <div class="campo-ed">
       <label>Referências normativas</label>
       <input type="text" id="tRefs" value="${refs}" placeholder="Ex.: NR 01 e NR 06" />
+    </div>
+    <div class="campo-ed">
+      <label>Arquivo do selo da NR (imagem na pasta)</label>
+      <input type="text" id="tSeloArq" value="${seloArquivo}" placeholder="Ex.: selo-nr06.png (deixe vazio para desenhar losango)" />
+      <div style="font-size:.76rem;color:var(--texto-suave);margin-top:5px;">
+        Coloque a imagem quadrada do selo na mesma pasta dos arquivos. Vazio = losango desenhado automaticamente.
+      </div>
     </div>
     <div class="campo-ed">
       <label>Itens do conteúdo programático (verso)</label>
@@ -451,9 +459,10 @@ function abrirEditorNr(chave) {
   document.getElementById("btnSalvarTpl").addEventListener("click", async ()=>{
     const nomeCurtoVal = document.getElementById("tNomeCurto").value.trim();
     const refsVal = document.getElementById("tRefs").value.trim();
+    const seloArqVal = document.getElementById("tSeloArq").value.trim();
     const itensVal = lerItens();
     if(!nomeCurtoVal){ mostrarTpl("Informe o nome do treinamento.","err"); return; }
-    templatesDB[chave] = { nomeCurto: nomeCurtoVal, referencias: refsVal, itens: itensVal, selo };
+    templatesDB[chave] = { nomeCurto: nomeCurtoVal, referencias: refsVal, itens: itensVal, selo, seloArquivo: seloArqVal };
     try{
       await salvarTemplates(); mostrarTpl("Template salvo! Novas emissões usarão este conteúdo.","ok");
       renderNrLista();
