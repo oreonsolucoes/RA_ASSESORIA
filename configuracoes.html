@@ -83,18 +83,9 @@
 
     /* Preview */
     .preview-box { background:#fff; border:1px solid var(--borda); border-radius:10px;
-      padding:20px; margin-top:20px; }
+      padding:20px; margin-top:0; }
     .preview-box h4 { font-size:.82rem; font-weight:600; color:var(--texto-suave);
       text-transform:uppercase; letter-spacing:.4px; margin-bottom:14px; }
-    .preview-cert { border:1px solid #ccc; border-radius:6px; padding:20px 24px;
-      font-family:'Times New Roman', serif; background:#fff; max-width:500px; margin:0 auto; }
-    .preview-cert .pv-barra { height:7px; border-radius:2px; margin-bottom:12px; }
-    .preview-cert .pv-titulo { letter-spacing:6px; font-weight:bold; margin-bottom:4px; }
-    .preview-cert .pv-sub { font-weight:bold; margin-bottom:12px; }
-    .preview-cert .pv-nome { font-weight:bold; font-size:1.1em; margin-bottom:12px; }
-    .preview-cert .pv-corpo { text-align:justify; line-height:1.6; margin-bottom:18px; }
-    .preview-cert .pv-assin { display:flex; justify-content:space-between;
-      border-top:1px solid #999; padding-top:8px; font-size:.78em; }
 
     .msg { margin-top:14px; font-size:.88rem; padding:11px 14px; border-radius:9px; display:none; }
     .msg.ok { background:var(--st-ok-bg); color:var(--st-ok-fg); display:block; }
@@ -170,11 +161,11 @@
           <div class="ap-grid">
             <div class="campo-ap">
               <label>Fonte do corpo <span class="val" id="vFontCorpo"></span></label>
-              <input type="range" id="fontCorpo" min="10" max="16" step="0.5" />
+              <input type="range" id="fontCorpo" min="11" max="14" step="0.5" />
             </div>
             <div class="campo-ap">
               <label>Espaçamento entre linhas <span class="val" id="vLeading"></span></label>
-              <input type="range" id="leading" min="5" max="10" step="0.5" />
+              <input type="range" id="leading" min="6" max="9" step="0.5" />
             </div>
             <div class="campo-ap">
               <label>Tamanho do título</label>
@@ -243,40 +234,16 @@
           <div class="msg" id="msg-ap"></div>
         </div>
 
-        <!-- Preview -->
+        <!-- Preview REAL via jsPDF -->
         <div>
           <div class="preview-box">
-            <h4>Preview (aproximado)</h4>
-            <div class="preview-cert" id="prevCert">
-              <div class="pv-barra" id="pvBarra"></div>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div>
-                  <div class="pv-titulo" id="pvTitulo">C E R T I F I C A D O</div>
-                  <div class="pv-sub">Conferido ao</div>
-                </div>
-                <div style="width:32px;height:32px;background:#f5c518;transform:rotate(45deg);border:1.5px solid #111;"></div>
-              </div>
-              <div class="pv-nome" id="pvNome">NOME DO PARTICIPANTE</div>
-              <div class="pv-corpo" id="pvCorpo">
-                Portador do CPF 000.000.000-00, pela participação do
-                <strong>Nome do Treinamento</strong> no dia 01/01/2026,
-                com carga horária de 8 horas, pela Empresa Richard
-                Consultoria em Segurança do Trabalho...
-              </div>
-              <div class="pv-assin" id="pvAssin">
-                <div>
-                  <strong>Elvio Richard Gonçalves</strong><br>
-                  ENG. SEGURANÇA DO TRABALHO<br>
-                  CREA nº 5070103113
-                </div>
-                <div>
-                  <strong>Participante</strong>
-                </div>
-              </div>
-              <div style="text-align:center; font-size:.72em; margin-top:14px;" id="pvRodape">
-                RICHARD Consultoria em Segurança do Trabalho<br>
-                Rua Tiro ao Pombo, 402 – São Paulo - SP
-              </div>
+            <h4>Preview real <span style="font-weight:400;font-size:.78rem;">(gerado pelo mesmo motor do PDF)</span></h4>
+            <div id="prev-loading" style="text-align:center;padding:30px;color:var(--texto-suave);font-size:.85rem;">
+              Carregando preview...
+            </div>
+            <canvas id="prevCanvas" style="width:100%;border:1px solid var(--borda);border-radius:6px;display:none;"></canvas>
+            <div style="font-size:.75rem;color:var(--texto-suave);margin-top:6px;text-align:center;">
+              Esta é a página 1 exata do certificado com as configurações atuais.
             </div>
           </div>
         </div>
@@ -550,17 +517,127 @@ function lerControles() {
     yAssin: parseInt(document.getElementById("yAssin").value),
   };
 }
+// carrega jsPDF uma vez
+let _jsPDFReady = false;
+async function garantirJsPDF() {
+  if (_jsPDFReady) return;
+  await new Promise(res => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload = res; document.head.appendChild(s);
+  });
+  _jsPDFReady = true;
+}
+
+// debounce para não gerar PDF a cada pixel do slider
+let _pvTimer = null;
 function atualizarPreview() {
-  const ap = lerControles();
-  document.getElementById("pvBarra").style.background = ap.corBarra;
-  document.getElementById("pvTitulo").style.fontSize = (ap.tamanhoTitulo/2.5)+"px";
-  document.getElementById("pvNome").style.fontSize = (ap.tamanhoNome/2)+"px";
-  document.getElementById("pvNome").style.color = ap.corNome;
-  document.getElementById("pvCorpo").style.fontSize = (ap.fontCorpo/1.5)+"px";
-  document.getElementById("pvCorpo").style.lineHeight = (ap.leading/4)+"";
-  document.getElementById("pvRodape").style.color = ap.corRodape;
-  document.getElementById("pvAssin").style.marginTop = ((ap.yAssin-120)/30)+"px";
   atualizarLabels();
+  clearTimeout(_pvTimer);
+  _pvTimer = setTimeout(gerarPreviewReal, 350);
+}
+
+async function gerarPreviewReal() {
+  try {
+    await garantirJsPDF();
+    const ap = lerControles();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+
+    // ── replica exatamente a função frente() do certificado.js ──
+    doc.setDrawColor(ap.corBorda || "#cccccc"); doc.setLineWidth(0.6);
+    doc.rect(8, 8, W-16, H-16);
+    doc.setFillColor(ap.corBarra || "#8b0000"); doc.rect(20, 24, W-74, 7, "F");
+
+    // Selo losango
+    const cx = W-34, cy = 38, lado = 12.5;
+    doc.lines([[lado,lado],[lado,-lado],[-lado,-lado],[-lado,lado]], cx, cy-lado, [1,1], "FD", true);
+    doc.setTextColor("#111111"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
+    doc.text("NR", cx, cy-1, {align:"center"});
+    doc.text("06", cx, cy+5, {align:"center"});
+
+    // Título
+    doc.setTextColor("#111111"); doc.setFont("helvetica","bold");
+    doc.setFontSize(Number(ap.tamanhoTitulo)||28);
+    doc.text("C E R T I F I C A D O", W/2, 52, {align:"center"});
+    doc.setFontSize(16);
+    doc.text("Conferido a", W/2, 62, {align:"center"});
+
+    // Nome
+    doc.setFontSize(Number(ap.tamanhoNome)||18);
+    doc.setTextColor(ap.corNome||"#111111");
+    doc.text("NOME DO PARTICIPANTE", W/2, 78, {align:"center"});
+
+    // Corpo — texto exemplo justificado simples
+    doc.setTextColor("#111111"); doc.setFont("helvetica","normal");
+    doc.setFontSize(Number(ap.fontCorpo)||13.5);
+    const linhas = doc.splitTextToSize(
+      "Portador do CPF 000.000.000-00, pela participação do Treinamento de Utilização e " +
+      "Higienização de Equipamentos de Proteção Individual - EPI no dia 01/01/2026, com " +
+      "carga horária de 2 horas, pela Empresa Richard Consultoria em Segurança do Trabalho " +
+      "nas dependências da Empresa Exemplo Ltda, conforme conteúdo programático, vide verso:",
+      W-50
+    );
+    doc.text(linhas, 25, 95);
+    const yFim = 95 + linhas.length * (Number(ap.leading)||7);
+
+    // Assinaturas
+    const yb = Math.max(Math.min(Number(ap.yAssin)||150, 185), yFim+25);
+    doc.setDrawColor("#111111"); doc.setLineWidth(0.4);
+    doc.line(30, yb, 95, yb); doc.line(W-95, yb, W-30, yb);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10);
+    doc.text("Elvio Richard Gonçalves", 62.5, yb+5, {align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5);
+    doc.text("ENG. SEGURANÇA DO TRABALHO", 62.5, yb+9, {align:"center"});
+    doc.text("CREA nº 5070103113  -  INSTRUTOR", 62.5, yb+12.5, {align:"center"});
+    doc.setFont("helvetica","bold"); doc.setFontSize(10);
+    doc.text("NOME DO PARTICIPANTE", W-62.5, yb+5, {align:"center"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text("Participante", W-62.5, yb+9, {align:"center"});
+
+    // Rodapé
+    const corRod = ap.corRodape || "#8b0000";
+    doc.setDrawColor(corRod); doc.setLineWidth(1); doc.line(20, H-40, W-20, H-40);
+    doc.setTextColor(corRod); doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.text("RICHARD Consultoria em Segurança do Trabalho", W/2, H-34, {align:"center"});
+    doc.setFontSize(7.5);
+    doc.text("Rua Tiro ao Pombo, 402 - Freguesia do Ó - São Paulo - SP", W/2, H-30, {align:"center"});
+    doc.text("Tel.: (11) 9 5826 5323", W/2, H-26.5, {align:"center"});
+
+    // renderiza p1 como PNG e coloca no canvas
+    const dataUri = doc.output("datauristring");
+    // usa PDF.js para renderizar (se disponível) ou mostra via img como fallback
+    const canvas = document.getElementById("prevCanvas");
+    const loading = document.getElementById("prev-loading");
+
+    // fallback: embed num iframe pequeno
+    const b64 = dataUri.split(",")[1];
+    const blob = new Blob([Uint8Array.from(atob(b64), c=>c.charCodeAt(0))], {type:"application/pdf"});
+    const url = URL.createObjectURL(blob);
+
+    // usa PDF.js CDN para renderizar em canvas
+    if (!window.pdfjsLib) {
+      const s2 = document.createElement("script");
+      s2.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      await new Promise(r => { s2.onload=r; document.head.appendChild(s2); });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+    const pdfDoc2 = await window.pdfjsLib.getDocument(url).promise;
+    const page = await pdfDoc2.getPage(1);
+    const scale = 1.8;
+    const vp = page.getViewport({scale});
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext: canvas.getContext("2d"), viewport: vp}).promise;
+    loading.style.display = "none";
+    canvas.style.display = "block";
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    console.error("Preview:", e);
+    document.getElementById("prev-loading").textContent = "Preview indisponível (requer publicação online).";
+  }
 }
 
 ["fontCorpo","leading","yAssin"].forEach(id=>{
