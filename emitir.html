@@ -75,10 +75,14 @@
             <label for="dataTreino">Data do treinamento</label>
             <input type="date" id="dataTreino" />
           </div>
-          <div class="campo">
+          <div class="campo" id="campoCarga">
             <label for="carga">Carga horária</label>
             <input type="text" id="carga" placeholder="Ex.: 8 horas" />
           </div>
+        </div>
+        <div class="campo" id="campoEquipamento" style="display:none;">
+          <label for="equipamento">Equipamento instruído (NR-12)</label>
+          <input type="text" id="equipamento" placeholder="Ex.: Retroescavadeira / Escavadeira" />
         </div>
         <div class="campo">
           <label for="endereco">Local / endereço (opcional)</label>
@@ -183,11 +187,17 @@
     });
 
     selTipo.addEventListener("change", () => {
-      const c = CONTEUDOS[selTipo.value];
+      const chave = selTipo.value;
+      const c = CONTEUDOS[chave];
       const aj = document.getElementById("ajudaConteudo");
-      if (selTipo.value && !c)
+      if (chave && !c)
         aj.textContent = "⚠️ Conteúdo programático desta norma ainda não cadastrado — o verso sairá sem itens até você fornecê-lo.";
       else aj.textContent = "";
+
+      // NR-01 não tem carga horária; NR-12 pede o equipamento instruído
+      const info = chave ? VIGENCIAS[chave] : null;
+      document.getElementById("campoCarga").style.display = info?.semCarga ? "none" : "block";
+      document.getElementById("campoEquipamento").style.display = info?.pedeEquipamento ? "block" : "none";
     });
 
     // Assinatura: mostra a prévia quando escolhe "usar assinatura"
@@ -213,11 +223,18 @@
       if (!cpf) return mostrar("Selecione o funcionário.", "err");
       if (!tipo) return mostrar("Selecione o treinamento.", "err");
       if (!inData.value) return mostrar("Informe a data do treinamento.", "err");
-      if (!inCarga.value.trim()) return mostrar("Informe a carga horária.", "err");
+
+      const info = VIGENCIAS[tipo];
+      // NR-01 não tem carga horária; nas demais, é obrigatória
+      if (!info.semCarga && !inCarga.value.trim())
+        return mostrar("Informe a carga horária.", "err");
+      // NR-12 exige o equipamento instruído
+      const equipamento = document.getElementById("equipamento").value.trim();
+      if (info.pedeEquipamento && !equipamento)
+        return mostrar("Informe o equipamento instruído (NR-12).", "err");
 
       const opt = selFunc.options[selFunc.selectedIndex];
       const emp = empresasMap[cnpj];
-      const info = VIGENCIAS[tipo];
       const cont = CONTEUDOS[tipo];
 
       btn.disabled = true; btn.textContent = "Gerando...";
@@ -241,13 +258,21 @@
           // se falhar, segue sem logo (não bloqueia a emissão)
         }
 
+        // nome do treinamento: na NR-12, acrescenta o equipamento instruído
+        let nomeTreino = cont?.nomeCurto || info.label;
+        if (info.pedeEquipamento && equipamento) {
+          nomeTreino = `${nomeTreino} — ${equipamento}`;
+        }
+        // carga: NR-01 não tem; nas demais, normaliza
+        const cargaFinal = info.semCarga ? "" : normalizarCarga(inCarga.value);
+
         // 1) PDF
         const doc = gerarCertificado({
           nome: opt.dataset.nome,
           cpfFmt: opt.dataset.cpffmt,
-          treinamentoNome: cont?.nomeCurto || info.label,
+          treinamentoNome: nomeTreino,
           dataTreino: fmtBR(inData.value),
-          cargaHoraria: normalizarCarga(inCarga.value),
+          cargaHoraria: cargaFinal,
           empresaRazao: emp.razaoSocial,
           endereco: inEndereco.value.trim(),
           selo: cont?.selo || info.label.split("—")[0].trim(),
