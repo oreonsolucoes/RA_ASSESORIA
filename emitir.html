@@ -273,6 +273,12 @@
           logoDataUrl = await carregarImagemComoDataUrl(LOGO_URL);
         }
 
+        // Selo da NR (opcional) — arquivo definido no template
+        let seloDataUrl = null;
+        if (cont?.seloArquivo) {
+          seloDataUrl = await carregarImagemComoDataUrl(cont.seloArquivo);
+        }
+
         // nome do treinamento: na NR-12, acrescenta o equipamento instruído
         let nomeTreino = cont?.nomeCurto || info.label;
         if (info.pedeEquipamento && equipamento) {
@@ -291,6 +297,7 @@
           empresaRazao: emp.razaoSocial,
           endereco: inEndereco.value.trim(),
           selo: cont?.selo || info.label.split("—")[0].trim(),
+          seloDataUrl: seloDataUrl,
           conteudoItens: cont?.itens || [],
           referencias: cont?.referencias || "",
           assinaturaInstrutorDataUrl: assinaturaDataUrl,
