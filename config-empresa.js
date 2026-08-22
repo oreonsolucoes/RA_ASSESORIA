@@ -23,7 +23,7 @@ export const ASSINATURA_INSTRUTOR_URL = "assinatura.png";
 
 // (Opcional) Logo da Richard Assessoria — mesma lógica (arquivo local ou raw).
 // Deixe "" para manter o selo "RA" atual.
-export const LOGO_URL = "";
+export const LOGO_URL = "logo.png";
 
 // Opções de "dados de pagamento" que aparecem no menu suspenso do
 // relatório de medição. Edite/adicione conforme suas contas.
