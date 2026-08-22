@@ -1,12 +1,14 @@
 // ============================================================
-// certificado.js  (v2 — RETRATO, fiel ao modelo NR-12)
+// certificado.js  (v3 — suporte a aparência customizada via banco)
 // Gera o PDF do certificado no navegador com jsPDF.
 // jsPDF é carregado via CDN na página que usa este módulo.
 //
 // dados = {
 //   nome, cpfFmt, treinamentoNome, dataTreino (dd/mm/aaaa),
 //   cargaHoraria, empresaRazao, endereco, selo, conteudoItens[],
-//   referencias, assinaturaInstrutorDataUrl (PNG base64 | null)
+//   referencias, assinaturaInstrutorDataUrl (PNG base64 | null),
+//   logoDataUrl (PNG base64 | null),
+//   aparencia (objeto do banco | null → usa padrões abaixo)
 // }
 // ============================================================
 
@@ -14,6 +16,13 @@ const VINHO = "#8b0000";
 const AMARELO = "#f5c518";
 const TINTA = "#12233f";
 const PRETO = "#111111";
+
+// Valores padrão de aparência (usados quando não há customização no banco)
+const AP_PADRAO = {
+  fontCorpo: 13.5, leading: 7, tamanhoTitulo: 28, tamanhoNome: 18,
+  corBarra: "#8b0000", corRodape: "#8b0000", corNome: "#111111", corBorda: "#cccccc",
+  yAssin: 150,
+};
 
 // Carrega imagem de URL (raw do GitHub) e devolve dataURL PNG p/ o jsPDF.
 // Precisa de CORS liberado na origem (o raw.githubusercontent.com libera).
@@ -103,17 +112,19 @@ function paragrafoJustificado(doc, x, y, larguraMax, fontSize, leading, partes) 
 }
 
 function frente(doc, W, H, d) {
+  // Merge aparência: banco → padrão
+  const ap = { ...AP_PADRAO, ...(d.aparencia || {}) };
+
   // Moldura externa
-  doc.setDrawColor("#cccccc"); doc.setLineWidth(0.6);
+  doc.setDrawColor(ap.corBorda); doc.setLineWidth(0.6);
   doc.rect(8, 8, W - 16, H - 16);
 
-  // Barra vinho superior (deixa espaço à direita p/ o selo)
-  doc.setFillColor(VINHO); doc.rect(20, 24, W - 74, 7, "F");
+  // Barra superior (cor configurável)
+  doc.setFillColor(ap.corBarra); doc.rect(20, 24, W - 74, 7, "F");
 
   // Logo da empresa (topo esquerdo) — opcional
   if (d.logoDataUrl) {
     try {
-      // caixa ~32x16mm no canto superior esquerdo, acima do título
       doc.addImage(d.logoDataUrl, "PNG", 22, 38, 34, 16);
     } catch (e) { console.warn("Logo:", e); }
   }
@@ -138,8 +149,9 @@ function frente(doc, W, H, d) {
   doc.setFontSize(16);
   doc.text("Conferido a", W / 2, 62, { align: "center" });
 
-  // Nome
-  doc.setFontSize(18);
+  // Nome — cor configurável
+  doc.setFontSize(ap.tamanhoNome);
+  doc.setTextColor(ap.corNome);
   doc.text((d.nome || "").toUpperCase(), W / 2, 78, { align: "center" });
 
   // Corpo justificado com negrito no nome do treinamento.
@@ -153,10 +165,10 @@ function frente(doc, W, H, d) {
          `${d.endereco ? ", localizada na " + d.endereco : ""}, conforme conteúdo programático, vide verso:`, b: false },
   ];
   doc.setTextColor(PRETO);
-  const yFimTexto = paragrafoJustificado(doc, 25, 95, W - 50, 13.5, 7, partes);
+  const yFimTexto = paragrafoJustificado(doc, 25, 95, W - 50, ap.fontCorpo, ap.leading, partes);
 
-  // Assinaturas — logo abaixo do texto, reduzindo o vão do meio
-  const yb = Math.min(yFimTexto + 34, 170);
+  // Assinaturas — posição configurável (ap.yAssin), nunca antes do fim do texto
+  const yb = Math.max(Math.min(ap.yAssin, 185), yFimTexto + 25);
   doc.setDrawColor(PRETO); doc.setLineWidth(0.4);
   if (d.assinaturaInstrutorDataUrl) {
     try { doc.addImage(d.assinaturaInstrutorDataUrl, "PNG", 40, yb - 20, 45, 17); }
@@ -174,9 +186,9 @@ function frente(doc, W, H, d) {
   doc.setFont("helvetica", "normal"); doc.setFontSize(8);
   doc.text("Participante", W - 62.5, yb + 9, { align: "center" });
 
-  // Rodapé
-  doc.setDrawColor(VINHO); doc.setLineWidth(1); doc.line(20, H - 40, W - 20, H - 40);
-  doc.setTextColor(VINHO); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  // Rodapé — cor configurável
+  doc.setDrawColor(ap.corRodape); doc.setLineWidth(1); doc.line(20, H - 40, W - 20, H - 40);
+  doc.setTextColor(ap.corRodape); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
   doc.text("RICHARD Consultoria em Segurança do Trabalho", W / 2, H - 34, { align: "center" });
   doc.setFontSize(7.5);
   doc.text("Rua Tiro ao Pombo, 402 - Freguesia do Ó - São Paulo - SP", W / 2, H - 30, { align: "center" });
