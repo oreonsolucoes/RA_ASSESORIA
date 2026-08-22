@@ -110,7 +110,7 @@
   <script type="module">
     import { auth, db } from "./firebase-config.js";
     import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-    import { collection, addDoc, getDocs, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+    import { collection, addDoc, getDocs, query, orderBy, Timestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
     import { VIGENCIAS, somarMeses } from "./vigencias.js";
     import { CONTEUDOS } from "./conteudos.js";
     import { gerarCertificado, carregarImagemComoDataUrl } from "./certificado.js";
@@ -235,27 +235,42 @@
 
       const opt = selFunc.options[selFunc.selectedIndex];
       const emp = empresasMap[cnpj];
-      const cont = CONTEUDOS[tipo];
+      const contBase = CONTEUDOS[tipo]; // fallback estático
 
       btn.disabled = true; btn.textContent = "Gerando...";
       try {
+        // Busca template customizado do banco (Configurações → Templates)
+        let cont = contBase;
+        try {
+          const tplSnap = await getDoc(doc(db,"configuracoes","templates"));
+          if (tplSnap.exists() && tplSnap.data().nrs?.[tipo]) {
+            cont = tplSnap.data().nrs[tipo]; // sobrescreve com a versão do banco
+          }
+        } catch(e) { console.warn("Usando template padrão:", e); }
+
+        // Busca aparência customizada do banco (Configurações → Aparência)
+        let aparencia = null;
+        try {
+          const apSnap = await getDoc(doc(db,"configuracoes","aparencia"));
+          if (apSnap.exists()) aparencia = apSnap.data().valores;
+        } catch(e) { console.warn("Usando aparência padrão:", e); }
+
         // Assinatura: só carrega se o modo "fixa" estiver escolhido
         let assinaturaDataUrl = null;
         const usarFixa = document.querySelector('input[name="assin"]:checked').value === "fixa";
         if (usarFixa && ASSINATURA_INSTRUTOR_URL) {
           assinaturaDataUrl = await carregarImagemComoDataUrl(ASSINATURA_INSTRUTOR_URL);
           if (!assinaturaDataUrl) {
-            mostrar("Não foi possível carregar a assinatura do link. Verifique se é o link raw e se o repositório é público.", "err");
+            mostrar("Não foi possível carregar a assinatura. Verifique o arquivo assinatura.png na pasta.", "err");
             btn.disabled = false; btn.textContent = "Gerar certificado e registrar vencimento";
             return;
           }
         }
 
-        // Logo da empresa (opcional) — carrega se configurado
+        // Logo da empresa (opcional)
         let logoDataUrl = null;
         if (LOGO_URL) {
           logoDataUrl = await carregarImagemComoDataUrl(LOGO_URL);
-          // se falhar, segue sem logo (não bloqueia a emissão)
         }
 
         // nome do treinamento: na NR-12, acrescenta o equipamento instruído
@@ -266,8 +281,8 @@
         // carga: NR-01 não tem; nas demais, normaliza
         const cargaFinal = info.semCarga ? "" : normalizarCarga(inCarga.value);
 
-        // 1) PDF
-        const doc = gerarCertificado({
+        // 1) PDF — passa aparência customizada se existir
+        const pdfDoc = gerarCertificado({
           nome: opt.dataset.nome,
           cpfFmt: opt.dataset.cpffmt,
           treinamentoNome: nomeTreino,
@@ -280,9 +295,10 @@
           referencias: cont?.referencias || "",
           assinaturaInstrutorDataUrl: assinaturaDataUrl,
           logoDataUrl: logoDataUrl,
+          aparencia: aparencia,   // null = usa padrões do certificado.js
         });
         const nomeArq = `Certificado_${info.label.split("—")[0].trim().replace(/\s/g,"")}_${opt.dataset.nome.replace(/\s/g,"_")}.pdf`;
-        doc.save(nomeArq);
+        pdfDoc.save(nomeArq);
 
         // 2) Registrar vencimento (mesma coleção do painel)
         const emissao = new Date(inData.value+"T00:00:00");
