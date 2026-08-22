@@ -59,6 +59,10 @@
             <label for="razao">Razão social</label>
             <input type="text" id="razao" placeholder="Ex.: Guedes Engenharia e Topografia Ltda" />
           </div>
+          <div class="campo">
+            <label for="endereco">Endereço (usado no certificado)</label>
+            <input type="text" id="endereco" placeholder="Ex.: Rua Coronel Jose Eusebio, 95 – São Paulo/SP" />
+          </div>
           <button class="btn btn-primario" id="btnSalvar" style="width:100%; justify-content:center;">Cadastrar empresa</button>
           <div class="msg" id="msg"></div>
         </div>
@@ -93,6 +97,7 @@
 
     const inCnpj = document.getElementById("cnpj");
     const inRazao = document.getElementById("razao");
+    const inEndereco = document.getElementById("endereco");
     const dicaCnpj = document.getElementById("dicaCnpj");
     const btn = document.getElementById("btnSalvar");
     const msg = document.getElementById("msg");
@@ -125,11 +130,12 @@
           cnpj: dig,
           cnpjFmt: formatarCNPJ(dig),
           razaoSocial: razao,
+          endereco: inEndereco.value.trim(),
           criadoEm: Timestamp.now(),
           criadoPor: auth.currentUser?.email ?? null,
         });
         mostrar("Empresa cadastrada!", "ok");
-        inCnpj.value=""; inRazao.value=""; dicaCnpj.textContent="";
+        inCnpj.value=""; inRazao.value=""; inEndereco.value=""; dicaCnpj.textContent="";
         listar();
       } catch (e) {
         console.error(e); mostrar("Erro ao salvar: " + e.message, "err");
