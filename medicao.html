@@ -49,7 +49,7 @@
     <div class="topo no-print">
       <div class="eyebrow">Financeiro</div>
       <h1>Relatório de medição</h1>
-      <p>Consolida os serviços do período por empresa. Fechamento padrão no dia 30.</p>
+      <p>Consolida os serviços do período por empresa. Preencha os dados e clique em Gerar.</p>
     </div>
 
     <div class="controles no-print">
@@ -70,6 +70,18 @@
           <option value="pago">Só pago</option>
         </select>
       </div>
+      <div class="campo-c">
+        <label>Funcionário solicitante</label>
+        <input type="text" id="solicitante" placeholder="Nome do solicitante" />
+      </div>
+      <div class="campo-c">
+        <label>Dados de pagamento</label>
+        <select id="dadosPagto"></select>
+      </div>
+      <div class="campo-c">
+        <label>Vencimento</label>
+        <input type="date" id="vencimento" />
+      </div>
       <button class="btn btn-primario" id="btnGerar">Gerar</button>
       <button class="btn btn-marca" id="btnImprimir">Imprimir / PDF</button>
     </div>
@@ -83,6 +95,8 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 import { collection, getDocs, query } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { moedaBR, condicaoPorId } from "./financeiro-fluxo.js";
+import { DADOS_PAGAMENTO, LOGO_URL } from "./config-empresa.js";
+import { carregarImagemComoDataUrl } from "./certificado.js";
 import { montarMenu } from "./menu.js";
 
 montarMenu("financeiro");
@@ -94,11 +108,21 @@ onAuthStateChanged(auth, u => {
 document.getElementById("btnSair").addEventListener("click", () => signOut(auth));
 
 let todos = [];
+let logoDataUrl = null;
 
 async function init() {
   // mês atual como padrão
   const hoje = new Date();
   document.getElementById("mesRef").value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}`;
+
+  // popula o menu suspenso de dados de pagamento
+  const selPagto = document.getElementById("dadosPagto");
+  selPagto.innerHTML = DADOS_PAGAMENTO.map(d => `<option>${d}</option>`).join("");
+
+  // carrega o logo (se configurado) para exibir no cabeçalho do relatório
+  if (LOGO_URL) {
+    logoDataUrl = await carregarImagemComoDataUrl(LOGO_URL);
+  }
 
   const snap = await getDocs(query(collection(db,"documentos")));
   todos = snap.docs.map(d => {
@@ -152,7 +176,20 @@ function gerar() {
   const periodo = `${datas[0].toLocaleDateString("pt-BR")} a ${datas[datas.length-1].toLocaleDateString("pt-BR")}`;
   const totalGeral = lista.reduce((s,t)=>s+t.valor,0);
 
+  // valores dos novos campos editáveis
+  const solicitante = document.getElementById("solicitante").value.trim();
+  const vencInput = document.getElementById("vencimento").value;
+  const vencTxt = vencInput
+    ? new Date(vencInput+"T00:00:00").toLocaleDateString("pt-BR")
+    : "—";
+
+  // logo antes do título, se configurado
+  const logoHTML = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="Logo" style="height:52px;margin-bottom:14px;" />`
+    : "";
+
   let html = `<div class="relatorio">
+    ${logoHTML}
     <div class="rel-cab">
       <div>
         <div class="rtit">Relatório de Medição</div>
@@ -160,7 +197,8 @@ function gerar() {
       </div>
       <div class="rperiodo">
         Referência: ${nomesMes[mes-1]}/${ano}<br>
-        Período: ${periodo}
+        Período: ${periodo}<br>
+        <strong>Vencimento: ${vencTxt}</strong>
       </div>
     </div>`;
 
@@ -168,7 +206,7 @@ function gerar() {
     const subtotal = servs.reduce((s,t)=>s+t.valor,0);
     html += `<div class="bloco-emp">
       <h3>${emp}</h3>
-      <div class="solic">Solicitante: ${emp}</div>
+      <div class="solic">Solicitante: ${solicitante || emp}</div>
       <table class="tab-serv">
         <thead><tr><th>Serviço</th><th>Funcionário</th><th>Data</th><th>Condição</th><th class="vlr">Valor</th></tr></thead>
         <tbody>
@@ -184,10 +222,12 @@ function gerar() {
     </div>`;
   }
 
+  const dadosPagto = document.getElementById("dadosPagto").value;
   html += `<div class="rel-total"><span class="lbl">Total geral do período</span><span class="val">${moedaBR(totalGeral)}</span></div>
     <div class="rodape-pgto">
-      <strong>Dados para pagamento:</strong> (configure em config-empresa.js)<br>
-      Documento gerado em ${new Date().toLocaleDateString("pt-BR")} · Fechamento mensal dia 30.
+      <strong>Dados para pagamento:</strong> ${dadosPagto}<br>
+      <strong>Vencimento:</strong> ${vencTxt}<br>
+      Documento gerado em ${new Date().toLocaleDateString("pt-BR")}.
     </div>
   </div>`;
 
