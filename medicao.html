@@ -93,7 +93,7 @@
 <script type="module">
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-import { collection, getDocs, query } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { collection, getDocs, query, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { moedaBR, condicaoPorId } from "./financeiro-fluxo.js";
 import { DADOS_PAGAMENTO, LOGO_URL } from "./config-empresa.js";
 import { carregarImagemComoDataUrl } from "./certificado.js";
@@ -116,8 +116,16 @@ async function init() {
   document.getElementById("mesRef").value = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}`;
 
   // popula o menu suspenso de dados de pagamento
+  // popula o menu de pagamento: tenta o banco (Configurações), senão usa o config
   const selPagto = document.getElementById("dadosPagto");
-  selPagto.innerHTML = DADOS_PAGAMENTO.map(d => `<option>${d}</option>`).join("");
+  let opcoesPagto = DADOS_PAGAMENTO;
+  try {
+    const cfgSnap = await getDoc(doc(db, "configuracoes", "pagamento"));
+    if (cfgSnap.exists() && Array.isArray(cfgSnap.data().opcoes) && cfgSnap.data().opcoes.length) {
+      opcoesPagto = cfgSnap.data().opcoes;
+    }
+  } catch (e) { console.warn("Usando dados de pagamento padrão:", e); }
+  selPagto.innerHTML = opcoesPagto.map(d => `<option>${d}</option>`).join("");
 
   // carrega o logo (se configurado) para exibir no cabeçalho do relatório
   if (LOGO_URL) {
