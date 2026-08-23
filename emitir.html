@@ -273,10 +273,21 @@
           logoDataUrl = await carregarImagemComoDataUrl(LOGO_URL);
         }
 
-        // Selo da NR (opcional) — arquivo definido no template
+        // Selo da NR — nome do arquivo derivado automaticamente da chave.
+        // Padrão: NR06 → nr06.png, NR35 → nr35.png, NR33_16 → nr33.png, DIR_DEFENSIVA → dir-defensiva.png
+        // Coloque os arquivos na mesma pasta (ex: nr06.png, nr35.png...).
+        // Se o arquivo não existir, o losango é desenhado automaticamente.
         let seloDataUrl = null;
-        if (cont?.seloArquivo) {
-          seloDataUrl = await carregarImagemComoDataUrl(cont.seloArquivo);
+        try {
+          // converte chave para nome de arquivo: NR33_16 → nr33, DIR_DEFENSIVA → dir-defensiva
+          const seloNome = tipo
+            .toLowerCase()
+            .replace(/_\d+$/, "")       // remove sufixo numérico: nr33_16 → nr33, nr33_rec → nr33
+            .replace(/_/g, "-") + ".png"; // DIR_DEFENSIVA → dir-defensiva.png
+          seloDataUrl = await carregarImagemComoDataUrl(seloNome);
+        } catch (e) {
+          // arquivo não encontrado — usa o losango desenhado (fallback automático)
+          seloDataUrl = null;
         }
 
         // nome do treinamento: na NR-12, acrescenta o equipamento instruído
