@@ -1,1689 +1,412 @@
-// ============================================================
-// certificado.js (v6 — DIPLOMA PREMIUM / A4 PAISAGEM)
-// ============================================================
-//
-// Mantém:
-// - A4 paisagem
-// - Logo
-// - Selo
-// - Assinatura do instrutor
-// - Frente e verso
-// - Conteúdo programático
-// - Referências normativas
-// - Aparência customizável
-// - jsPDF
-//
-// ============================================================
+/**
+ * Módulo de geração de certificados em PDF via jsPDF (Browser-side)
+ * Richard Assessoria — Gestão de Segurança do Trabalho
+ */
 
-const VINHO   = "#720000";
-const VINHO2  = "#4F0000";
-const DOURADO = "#B8943D";
-const DOURADO2 = "#D7BE72";
-const CREME   = "#FBF7EE";
-const CREME2  = "#F4ECDD";
-const TINTA   = "#20202A";
-const CINZA   = "#686875";
-const CINZA2  = "#9999A3";
-const PRETO   = "#111111";
-const BRANCO  = "#FFFFFF";
-
-const AP_PADRAO = {
-  fontCorpo: 12.5,
-  leading: 6.8,
-
-  tamanhoTitulo: 34,
-  tamanhoNome: 23,
-
-  corBarra: VINHO,
-  corRodape: VINHO,
-
-  corNome: TINTA,
-  corBorda: DOURADO,
-
-  yAssin: 151,
+// Constantes de Cores (RGB Hexadecimal)
+const CORES = {
+  VINHO: "#720000",
+  VINHO_ESC: "#4F0000",
+  MAGENTA: "#9B1B4B",
+  DOURADO: "#B8943D",
+  DOURADO_CL: "#D7BE72",
+  CREME: "#FBF7EE",
+  TINTA: "#20202A",
+  CINZA: "#686875",
+  BRANCO: "#FFFFFF"
 };
 
-
-// ============================================================
-// CARREGAMENTO DE IMAGENS
-// ============================================================
-
+/**
+ * Converte URLs de imagens locais/remotas para Data URL (Base64)
+ * @param {string} url 
+ * @returns {Promise<string>}
+ */
 export async function carregarImagemComoDataUrl(url) {
-  if (!url) return null;
-
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-
-    const ehOutra =
-      /^https?:\/\//i.test(url) &&
-      !url.startsWith(location.origin);
-
-    if (ehOutra) {
-      img.crossOrigin = "anonymous";
-    }
-
+    img.crossOrigin = "Anonymous";
     img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0);
-
-        resolve(canvas.toDataURL("image/png"));
-      } catch (e) {
-        console.warn("Erro CORS ao converter imagem:", e);
-        resolve(null);
-      }
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
     };
-
-    img.onerror = () => {
-      console.warn("Falha ao carregar imagem:", url);
-      resolve(null);
-    };
-
+    img.onerror = (err) => reject(err);
     img.src = url;
   });
 }
 
+/**
+ * Gera o certificado em PDF (A4 Paisagem, 2 páginas)
+ * @param {Object} dados - Estrutura com dados do certificado
+ */
+export function gerarCertificado(dados = {}) {
+  const { window } = globalThis;
+  const jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
 
-// ============================================================
-// GERAÇÃO PRINCIPAL
-// ============================================================
+  if (!jsPDF) {
+    console.error("jsPDF não foi encontrado no escopo global.");
+    return;
+  }
 
-export function gerarCertificado(dados) {
-
-  const { jsPDF } = window.jspdf;
-
+  // Instância A4 Paisagem (297mm x 210mm)
   const doc = new jsPDF({
     orientation: "landscape",
     unit: "mm",
     format: "a4"
   });
 
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
+  const LARGURA = 297;
+  const ALTURA = 210;
 
-  frente(doc, W, H, dados);
-
-  if ((dados.conteudoItens || []).length > 0) {
-    doc.addPage();
-    verso(doc, W, H, dados);
-  }
-
-  return doc;
-}
-
-
-// ============================================================
-// FUNÇÕES AUXILIARES DE TEXTO
-// ============================================================
-
-function medirTexto(doc, texto, tamanho, negrito = false) {
-  doc.setFont(
-    "helvetica",
-    negrito ? "bold" : "normal"
-  );
-
-  doc.setFontSize(tamanho);
-
-  return doc.getTextWidth(texto);
-}
-
-
-// ------------------------------------------------------------
-// Texto centralizado com quebra automática
-// ------------------------------------------------------------
-
-function textoCentralizado(
-  doc,
-  texto,
-  cx,
-  y,
-  maxW,
-  fs,
-  fonte = "normal",
-  espacamento = 5
-) {
-
-  doc.setFont("helvetica", fonte);
-  doc.setFontSize(fs);
-
-  const linhas = doc.splitTextToSize(texto, maxW);
-
-  linhas.forEach(linha => {
-
-    doc.text(
-      linha,
-      cx,
-      y,
-      { align: "center" }
-    );
-
-    y += espacamento;
-  });
-
-  return y;
-}
-
-
-// ------------------------------------------------------------
-// Parágrafo justificado com negrito parcial
-// ------------------------------------------------------------
-
-function paraJust(
-  doc,
-  x,
-  y,
-  maxW,
-  fs,
-  lead,
-  partes
-) {
-
-  doc.setFontSize(fs);
-
-  const tokens = [];
-
-  partes.forEach(parte => {
-
-    const palavras = parte.t.split(/(\s+)/);
-
-    palavras.forEach(w => {
-
-      if (w.length) {
-        tokens.push({
-          w,
-          b: parte.b
-        });
-      }
-
-    });
-
-  });
-
-  const espaco = () => {
-
-    doc.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    return doc.getTextWidth(" ");
+  // --- FUNÇÕES DE SUPORTE GRÁFICO ---
+  const hexToRgb = (hex) => {
+    const bigint = parseInt(hex.replace("#", ""), 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255
+    };
   };
 
-  const larguraToken = token => {
-
-    doc.setFont(
-      "helvetica",
-      token.b ? "bold" : "normal"
-    );
-
-    return doc.getTextWidth(token.w);
+  const setCorPreenchimento = (hex) => {
+    const { r, g, b } = hexToRgb(hex);
+    doc.setFillColor(r, g, b);
   };
 
-  const linhas = [];
+  const setCorLembranca = (hex) => {
+    const { r, g, b } = hexToRgb(hex);
+    doc.setDrawColor(r, g, b);
+  };
 
-  let linha = [];
-  let larguraLinha = 0;
+  const setCorTexto = (hex) => {
+    const { r, g, b } = hexToRgb(hex);
+    doc.setTextColor(r, g, b);
+  };
 
-  tokens.forEach(token => {
+  // Desenha os polígonos geométricos na lateral esquerda
+  const desenharFormasGeometricas = () => {
+    // Camada 1: Vinho Escuro (Fundo base da geometria)
+    setCorPreenchimento(CORES.VINHO_ESC);
+    doc.triangle(0, 0, 125, 0, 0, 210, "F");
+    doc.triangle(0, 210, 125, 0, 110, 210, "F");
 
-    if (!token.w.trim()) return;
+    // Camada 2: Faixa Dourada Superior
+    setCorPreenchimento(CORES.DOURADO);
+    doc.triangle(0, 0, 130, 0, 0, 75, "F");
 
-    const largura = larguraToken(token);
+    // Camada 3: Magenta Intermediário
+    setCorPreenchimento(CORES.MAGENTA);
+    doc.triangle(0, 25, 115, 0, 0, 155, "F");
 
-    const adicionar =
-      linha.length
-        ? espaco() + largura
-        : largura;
+    // Camada 4: Vinho Principal
+    setCorPreenchimento(CORES.VINHO);
+    doc.triangle(0, 85, 105, 0, 0, 210, "F");
 
-    if (
-      larguraLinha + adicionar > maxW &&
-      linha.length
-    ) {
+    // Camada 5: Faixa Dourada Inferior Diagonal
+    setCorPreenchimento(CORES.DOURADO_CL);
+    doc.triangle(0, 140, 95, 210, 0, 210, "F");
 
-      linhas.push(linha);
+    // Camada 6: Recorte Inferior Vinho
+    setCorPreenchimento(CORES.VINHO_ESC);
+    doc.triangle(0, 165, 75, 210, 0, 210, "F");
+  };
 
-      linha = [token];
-      larguraLinha = largura;
+  const desenharEstruturaPagina = () => {
+    // Fundo Creme
+    setCorPreenchimento(CORES.CREME);
+    doc.rect(0, 0, LARGURA, ALTURA, "F");
 
-    } else {
+    // Formas Laterais
+    desenharFormasGeometricas();
 
-      linha.push(token);
-      larguraLinha += adicionar;
+    // Moldura Dupla Dourada
+    setCorLembranca(CORES.DOURADO);
+    doc.setLineWidth(0.88); // ~2.5px
+    doc.rect(7, 7, LARGURA - 14, ALTURA - 14, "D");
+    doc.setLineWidth(0.21); // ~0.6px
+    doc.rect(9.5, 9.5, LARGURA - 19, ALTURA - 19, "D");
 
+    // Barra Vinho no Topo (8px / ~2.8mm)
+    setCorPreenchimento(CORES.VINHO);
+    doc.rect(0, 0, LARGURA, 2.8, "F");
+
+    // Barra Vinho no Rodapé (28px / ~10mm)
+    doc.rect(0, ALTURA - 10, LARGURA, 10, "F");
+
+    // Texto do Rodapé
+    setCorTexto(CORES.BRANCO);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const enderecoTexto = dados.endereco || "Richard Assessoria em Segurança do Trabalho — Contato e Atendimento";
+    doc.text(enderecoTexto, LARGURA / 2, ALTURA - 3.8, { align: "center" });
+  };
+
+  const desenharLinhaOrnamental = (y) => {
+    const cx = 195; // Centro da área útil do certificado (lado direito)
+    setCorLembranca(CORES.DOURADO);
+    doc.setLineWidth(0.3);
+    doc.line(cx - 45, y, cx + 45, y);
+
+    // Losango Central
+    setCorPreenchimento(CORES.DOURADO);
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 1 }));
+    
+    // Desenha o losango
+    const size = 1.8;
+    doc.triangle(cx, y - size, cx - size, y, cx + size, y, "F");
+    doc.triangle(cx, y + size, cx - size, y, cx + size, y, "F");
+    doc.restoreGraphicsState();
+  };
+
+  // ==========================================
+  // PÁGINA 1: FRENTE (CERTIFICADO)
+  // ==========================================
+  desenharEstruturaPagina();
+
+  // Logo da Empresa (Topo Esquerdo)
+  if (dados.logoDataUrl) {
+    try {
+      doc.addImage(dados.logoDataUrl, "PNG", 15, 15, 38, 20, undefined, "FAST");
+    } catch (e) {
+      console.warn("Erro ao renderizar logo:", e);
     }
-
-  });
-
-  if (linha.length) {
-    linhas.push(linha);
   }
 
-  linhas.forEach((linha, indice) => {
-
-    const ultima =
-      indice === linhas.length - 1;
-
-    const soma = linha.reduce(
-      (total, token) =>
-        total + larguraToken(token),
-      0
-    );
-
-    const quantidadeEspacos =
-      linha.length - 1;
-
-    let espacoLinha = espaco();
-
-    if (
-      !ultima &&
-      quantidadeEspacos > 0
-    ) {
-
-      espacoLinha =
-        (maxW - soma) /
-        quantidadeEspacos;
-
+  // Selo da NR (Topo Direito)
+  if (dados.seloDataUrl) {
+    try {
+      doc.addImage(dados.seloDataUrl, "PNG", LARGURA - 33, 14, 18, 18, undefined, "FAST");
+    } catch (e) {
+      console.warn("Erro ao renderizar selo:", e);
     }
-
-    let cursorX = x;
-
-    linha.forEach((token, i) => {
-
-      doc.setFont(
-        "helvetica",
-        token.b ? "bold" : "normal"
-      );
-
-      doc.text(
-        token.w,
-        cursorX,
-        y
-      );
-
-      cursorX +=
-        larguraToken(token);
-
-      if (i < quantidadeEspacos) {
-        cursorX += espacoLinha;
-      }
-
-    });
-
-    y += lead;
-  });
-
-  return y;
-}
-
-
-// ============================================================
-// ELEMENTOS DECORATIVOS
-// ============================================================
-
-// ------------------------------------------------------------
-// Losango
-// ------------------------------------------------------------
-
-function desenharLosango(
-  doc,
-  cx,
-  cy,
-  tamanho,
-  preenchido = true
-) {
-
-  doc.setDrawColor(DOURADO);
-  doc.setLineWidth(0.6);
-
-  if (preenchido) {
-    doc.setFillColor(DOURADO);
   }
 
-  const pontos = [
-    [0, -tamanho],
-    [tamanho, 0],
-    [0, tamanho],
-    [-tamanho, 0]
-  ];
+  // Título: CERTIFICADO
+  setCorTexto(CORES.TINTA);
+  doc.setFont("times", "bold");
+  doc.setFontSize(30);
+  doc.text("C E R T I F I C A D O", 195, 35, { align: "center" });
 
-  doc.lines(
-    [
-      [tamanho, tamanho],
-      [-tamanho, tamanho],
-      [-tamanho, -tamanho],
-      [tamanho, -tamanho]
-    ],
-    cx,
-    cy - tamanho,
-    [1, 1],
-    preenchido ? "F" : "S",
-    true
-  );
-}
+  // Linha Ornamental abaixo do Título
+  desenharLinhaOrnamental(40);
 
+  // Subtítulo: DE CAPACITAÇÃO PROFISSIONAL
+  setCorTexto(CORES.CINZA);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("DE CAPACITAÇÃO PROFISSIONAL", 195, 46, { align: "center" });
 
-// ------------------------------------------------------------
-// Pequeno ornamento central
-// ------------------------------------------------------------
+  // "Este certificado é conferido a"
+  doc.setFont("times", "italic");
+  doc.setFontSize(11);
+  doc.text("Este certificado é conferido a", 195, 57, { align: "center" });
 
-function ornamentoCentral(
-  doc,
-  cx,
-  y,
-  largura = 90,
-  cor = DOURADO
-) {
+  // NOME DO PARTICIPANTE (Ajuste dinâmico de fonte)
+  setCorTexto(CORES.VINHO);
+  doc.setFont("times", "bolditalic");
+  let tamanhoFonteNome = 24;
+  const nome = (dados.nome || "NOME DO PARTICIPANTE").toUpperCase();
+  
+  doc.setFontSize(tamanhoFonteNome);
+  while (doc.getTextWidth(nome) > 130 && tamanhoFonteNome > 13) {
+    tamanhoFonteNome -= 1;
+    doc.setFontSize(tamanhoFonteNome);
+  }
+  doc.text(nome, 195, 70, { align: "center" });
 
-  doc.setDrawColor(cor);
-  doc.setLineWidth(0.5);
+  // Linha fina sob o nome
+  setCorLembranca(CORES.DOURADO);
+  doc.setLineWidth(0.2);
+  doc.line(135, 74, 255, 74);
 
-  const meio = 5;
+  // Metadados (CPF, Data, Carga Horária)
+  setCorTexto(CORES.CINZA);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  const infoLinha = [
+    dados.cpfFmt ? `CPF: ${dados.cpfFmt}` : null,
+    dados.dataTreino ? `Data: ${dados.dataTreino}` : null,
+    dados.cargaHoraria ? `Carga Horária: ${dados.cargaHoraria}` : null
+  ].filter(Boolean).join("   •   ");
 
-  doc.line(
-    cx - largura / 2,
-    y,
-    cx - meio,
-    y
-  );
+  doc.text(infoLinha, 195, 82, { align: "center" });
 
-  doc.line(
-    cx + meio,
-    y,
-    cx + largura / 2,
-    y
-  );
+  // "pela participação e conclusão do curso"
+  doc.setFont("times", "italic");
+  doc.setFontSize(11);
+  doc.text("pela participação e conclusão do curso de capacitação em", 195, 93, { align: "center" });
 
-  doc.setFillColor(cor);
+  // Nome do Treinamento
+  setCorTexto(CORES.TINTA);
+  doc.setFont("times", "bold");
+  let tamanhoFonteTreino = 15;
+  const treinoNome = dados.treinamentoNome || "Treinamento em Segurança do Trabalho";
+  
+  doc.setFontSize(tamanhoFonteTreino);
+  while (doc.getTextWidth(treinoNome) > 135 && tamanhoFonteTreino > 10) {
+    tamanhoFonteTreino -= 0.5;
+    doc.setFontSize(tamanhoFonteTreino);
+  }
+  doc.text(treinoNome, 195, 103, { align: "center" });
 
-  const d = 2;
+  // Texto Institucional (Justificado)
+  setCorTexto(CORES.CINZA);
+  doc.setFont("times", "italic");
+  doc.setFontSize(10.5);
+  const textoInstitucional = `Certificamos, para os devidos fins, que o profissional concluiu com aproveitamento a capacitação, estando apto a exercer as atividades referentes à norma, atendendo rigorosamente às exigências da Legislação de Segurança do Trabalho vigente.`;
+  
+  const linhasTexto = doc.splitTextToSize(textoInstitucional, 130);
+  doc.text(linhasTexto, 195, 115, { align: "center", maxWidth: 130 });
 
-  doc.lines(
-    [
-      [d, d],
-      [-d, d],
-      [-d, -d],
-      [d, -d]
-    ],
-    cx,
-    y - d,
-    [1, 1],
-    "F",
-    true
-  );
-}
-
-
-// ------------------------------------------------------------
-// Ornamento de canto
-// ------------------------------------------------------------
-
-function ornamentoCanto(
-  doc,
-  x,
-  y,
-  ladoX,
-  ladoY,
-  cor = DOURADO
-) {
-
-  doc.setDrawColor(cor);
-  doc.setLineWidth(0.55);
-
-  doc.line(
-    x,
-    y,
-    x + ladoX,
-    y
-  );
-
-  doc.line(
-    x,
-    y,
-    x,
-    y + ladoY
-  );
-
+  // Seção de Assinaturas (Linhas e Imagem)
+  const yAssinatura = 162;
+  setCorLembranca(CORES.CINZA);
   doc.setLineWidth(0.25);
 
-  doc.line(
-    x + 2,
-    y + 2,
-    x + ladoX - 2,
-    y + 2
-  );
-
-  doc.line(
-    x + 2,
-    y + 2,
-    x + 2,
-    y + ladoY - 2
-  );
-}
-
-
-// ------------------------------------------------------------
-// Moldura completa
-// ------------------------------------------------------------
-
-function desenharMoldura(
-  doc,
-  W,
-  H,
-  cor = DOURADO
-) {
-
-  // Fundo
-  doc.setFillColor(CREME);
-  doc.rect(
-    0,
-    0,
-    W,
-    H,
-    "F"
-  );
-
-  // Moldura externa
-  doc.setDrawColor(cor);
-  doc.setLineWidth(1.8);
-
-  doc.rect(
-    6,
-    6,
-    W - 12,
-    H - 12
-  );
-
-  // Moldura intermediária
-  doc.setLineWidth(0.35);
-
-  doc.rect(
-    8.5,
-    8.5,
-    W - 17,
-    H - 17
-  );
-
-  // Moldura interna
-  doc.setLineWidth(0.7);
-
-  doc.rect(
-    11,
-    11,
-    W - 22,
-    H - 22
-  );
-
-  // Cantos
-  ornamentoCanto(
-    doc,
-    14,
-    14,
-    13,
-    13,
-    cor
-  );
-
-  ornamentoCanto(
-    doc,
-    W - 14,
-    14,
-    -13,
-    13,
-    cor
-  );
-
-  ornamentoCanto(
-    doc,
-    14,
-    H - 14,
-    13,
-    -13,
-    cor
-  );
-
-  ornamentoCanto(
-    doc,
-    W - 14,
-    H - 14,
-    -13,
-    -13,
-    cor
-  );
-}
-
-
-// ------------------------------------------------------------
-// Barras vinho
-// ------------------------------------------------------------
-
-function desenharBarras(
-  doc,
-  W,
-  H,
-  cor = VINHO
-) {
-
-  doc.setFillColor(cor);
-
-  doc.rect(
-    6,
-    6,
-    W - 12,
-    7,
-    "F"
-  );
-
-  doc.rect(
-    6,
-    H - 13,
-    W - 12,
-    7,
-    "F"
-  );
-}
-
-
-// ============================================================
-// SELO
-// ============================================================
-
-function desenharSelo(
-  doc,
-  d,
-  cx,
-  cy,
-  tamanho
-) {
-
-  // Sombra
-  doc.setFillColor("#D9D0BA");
-
-  doc.circle(
-    cx + 1,
-    cy + 1,
-    tamanho,
-    "F"
-  );
-
-  // Círculo externo
-  doc.setFillColor(DOURADO);
-  doc.setDrawColor(VINHO2);
-  doc.setLineWidth(0.8);
-
-  doc.circle(
-    cx,
-    cy,
-    tamanho,
-    "FD"
-  );
-
-  // Círculo interno
-  doc.setFillColor(CREME);
-  doc.setDrawColor(VINHO2);
-  doc.setLineWidth(0.5);
-
-  doc.circle(
-    cx,
-    cy,
-    tamanho - 2.2,
-    "FD"
-  );
-
-  // Texto
-  const seloTexto =
-    String(d.selo || "NR")
-      .trim()
-      .split(/\s+/);
-
-  doc.setTextColor(VINHO2);
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
+  // Assinatura 1: Participante (Esquerda)
+  doc.line(130, yAssinatura, 185, yAssinatura);
+  setCorTexto(CORES.TINTA);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-
-  doc.text(
-    seloTexto[0] || "NR",
-    cx,
-    cy - 1,
-    { align: "center" }
-  );
-
-  doc.setFontSize(6.5);
-
-  doc.text(
-    seloTexto.slice(1).join(" ") || "CERTIFICADO",
-    cx,
-    cy + 4,
-    { align: "center" }
-  );
-
-  // Estrelinhas laterais
-  doc.setFontSize(6);
-
-  doc.text(
-    "✦",
-    cx - tamanho + 3,
-    cy + 1,
-    { align: "center" }
-  );
-
-  doc.text(
-    "✦",
-    cx + tamanho - 3,
-    cy + 1,
-    { align: "center" }
-  );
-}
-
-
-// ============================================================
-// FRENTE DO DIPLOMA
-// ============================================================
-
-function frente(
-  doc,
-  W,
-  H,
-  d
-) {
-
-  const ap = {
-    ...AP_PADRAO,
-    ...(d.aparencia || {})
-  };
-
-  const MX = 18;
-  const cx = W / 2;
-
-  const corBorda =
-    ap.corBorda || DOURADO;
-
-  const corBarra =
-    ap.corBarra || VINHO;
-
-  // ----------------------------------------------------------
-  // Fundo e moldura
-  // ----------------------------------------------------------
-
-  desenharMoldura(
-    doc,
-    W,
-    H,
-    corBorda
-  );
-
-  desenharBarras(
-    doc,
-    W,
-    H,
-    corBarra
-  );
-
-
-  // ----------------------------------------------------------
-  // Logo
-  // ----------------------------------------------------------
-
-  if (d.logoDataUrl) {
-
-    try {
-
-      doc.addImage(
-        d.logoDataUrl,
-        "PNG",
-        20,
-        18,
-        50,
-        18
-      );
-
-    } catch (e) {
-
-      console.warn(
-        "Erro ao inserir logo:",
-        e
-      );
-
-    }
-
-  }
-
-
-  // ----------------------------------------------------------
-  // Selo
-  // ----------------------------------------------------------
-
-  const seloTam = 15;
-
-  const seloX =
-    W - 28;
-
-  const seloY =
-    28;
-
-  if (d.seloDataUrl) {
-
-    try {
-
-      doc.addImage(
-        d.seloDataUrl,
-        "PNG",
-        seloX - seloTam,
-        seloY - seloTam,
-        seloTam * 2,
-        seloTam * 2
-      );
-
-    } catch (e) {
-
-      console.warn(
-        "Erro ao inserir selo:",
-        e
-      );
-
-      desenharSelo(
-        doc,
-        d,
-        seloX,
-        seloY,
-        seloTam
-      );
-    }
-
-  } else {
-
-    desenharSelo(
-      doc,
-      d,
-      seloX,
-      seloY,
-      seloTam
-    );
-
-  }
-
-
-  // ----------------------------------------------------------
-  // Identificação institucional
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
+  doc.text(dados.nome || "Participante", 157.5, yAssinatura + 4, { align: "center" });
+  setCorTexto(CORES.CINZA);
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
+  doc.text("Assinatura do Aluno", 157.5, yAssinatura + 8, { align: "center" });
 
-  doc.setTextColor(
-    DOURADO
-  );
-
-  doc.text(
-    "RICHARD CONSULTORIA EM SEGURANÇA DO TRABALHO",
-    cx,
-    21,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Título
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(
-    Number(ap.tamanhoTitulo) || 34
-  );
-
-  doc.setTextColor(
-    TINTA
-  );
-
-  doc.text(
-    "CERTIFICADO",
-    cx,
-    43,
-    { align: "center" }
-  );
-
-  ornamentoCentral(
-    doc,
-    cx,
-    47,
-    100,
-    corBorda
-  );
-
-
-  // ----------------------------------------------------------
-  // Texto "Conferido a"
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(10);
-
-  doc.setTextColor(
-    CINZA
-  );
-
-  doc.text(
-    "Conferido a",
-    cx,
-    56,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Nome
-  // ----------------------------------------------------------
-
-  const nome =
-    String(d.nome || "")
-      .trim()
-      .toUpperCase();
-
-  let tamanhoNome =
-    Number(ap.tamanhoNome) || 23;
-
-  // Reduz automaticamente nomes muito grandes
-  while (
-    tamanhoNome > 16 &&
-    medirTexto(
-      doc,
-      nome,
-      tamanhoNome,
-      true
-    ) > 190
-  ) {
-
-    tamanhoNome -= 0.5;
-
+  // Assinatura 2: Instrutor (Direita)
+  if (dados.assinaturaInstrutorDataUrl) {
+    try {
+      doc.addImage(dados.assinaturaInstrutorDataUrl, "PNG", 212, yAssinatura - 14, 35, 13, undefined, "FAST");
+    } catch (e) {
+      console.warn("Erro ao renderizar assinatura:", e);
+    }
   }
 
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(
-    tamanhoNome
-  );
-
-  doc.setTextColor(
-    ap.corNome || TINTA
-  );
-
-  doc.text(
-    nome,
-    cx,
-    68,
-    { align: "center" }
-  );
-
-
-  // Linha ornamental abaixo do nome
-  const larguraNome =
-    Math.min(
-      medirTexto(
-        doc,
-        nome,
-        tamanhoNome,
-        true
-      ) + 20,
-      205
-    );
-
-  doc.setDrawColor(
-    corBorda
-  );
-
-  doc.setLineWidth(
-    0.45
-  );
-
-  doc.line(
-    cx - larguraNome / 2,
-    72,
-    cx + larguraNome / 2,
-    72
-  );
-
-
-  // ----------------------------------------------------------
-  // Texto principal
-  // ----------------------------------------------------------
-
-  const bodyX = 39;
-  const bodyW = W - 78;
-
-  const trechoCarga =
-    d.cargaHoraria
-      ? `, com carga horária de ${d.cargaHoraria}`
-      : "";
-
-  const temVerso =
-    (d.conteudoItens || []).length > 0;
-
-  const partes = [
-
-    {
-      t: `Portador do CPF ${d.cpfFmt || ""}, pela participação do `,
-      b: false
-    },
-
-    {
-      t: d.treinamentoNome || "",
-      b: true
-    },
-
-    {
-      t:
-        ` no dia ${d.dataTreino || ""}` +
-        `${trechoCarga}, ` +
-        `pela Empresa Richard Consultoria em Segurança do Trabalho ` +
-        `nas dependências da Empresa ${d.empresaRazao || ""}` +
-        `${
-          d.endereco
-            ? `, localizada na ${d.endereco}`
-            : ""
-        }` +
-        `${
-          temVerso
-            ? ", conforme conteúdo programático, vide verso:"
-            : "."
-        }`,
-
-      b: false
-    }
-
-  ];
-
-  doc.setTextColor(
-    PRETO
-  );
-
-  const yFim =
-    paraJust(
-      doc,
-      bodyX,
-      82,
-      bodyW,
-      Number(ap.fontCorpo) || 12.5,
-      Number(ap.leading) || 6.8,
-      partes
-    );
-
-
-  // ----------------------------------------------------------
-  // Frase institucional
-  // ----------------------------------------------------------
-
-  const fraseY =
-    Math.max(
-      yFim + 3,
-      104
-    );
-
-  doc.setFont(
-    "helvetica",
-    "italic"
-  );
-
+  doc.line(205, yAssinatura, 260, yAssinatura);
+  setCorTexto(CORES.TINTA);
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
+  doc.text("Instrutor Responsável", 232.5, yAssinatura + 4, { align: "center" });
+  setCorTexto(CORES.CINZA);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text("Profissional Habilitado", 232.5, yAssinatura + 8, { align: "center" });
 
-  doc.setTextColor(
-    CINZA
-  );
-
-  doc.text(
-    "Certificamos, para os devidos fins, a conclusão da capacitação acima descrita.",
-    cx,
-    fraseY,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Assinaturas
-  // ----------------------------------------------------------
-
-  const yb = Math.max(
-    Math.min(
-      Number(ap.yAssin) || 151,
-      H - 39
-    ),
-    fraseY + 15
-  );
-
-  const linhaW = 72;
-
-  // Participante
-  const xPart =
-    70;
-
-  // Instrutor
-  const xInstr =
-    W - 70;
-
-
-  // Linhas
-  doc.setDrawColor(
-    CINZA
-  );
-
-  doc.setLineWidth(
-    0.4
-  );
-
-  doc.line(
-    xPart - linhaW / 2,
-    yb,
-    xPart + linhaW / 2,
-    yb
-  );
-
-  doc.line(
-    xInstr - linhaW / 2,
-    yb,
-    xInstr + linhaW / 2,
-    yb
-  );
-
-
-  // ----------------------------------------------------------
-  // Assinatura do instrutor
-  // ----------------------------------------------------------
-
-  if (
-    d.assinaturaInstrutorDataUrl
-  ) {
-
+  // QR Code (Se existir)
+  if (dados.qrCodeDataUrl) {
     try {
-
-      doc.addImage(
-        d.assinaturaInstrutorDataUrl,
-        "PNG",
-        xInstr - 27,
-        yb - 17,
-        54,
-        15
-      );
-
+      doc.addImage(dados.qrCodeDataUrl, "PNG", LARGURA - 28, ALTURA - 32, 18, 18, undefined, "FAST");
     } catch (e) {
+      console.warn("Erro ao renderizar QR Code:", e);
+    }
+  }
 
-      console.warn(
-        "Erro ao inserir assinatura:",
-        e
-      );
+  // ==========================================
+  // PÁGINA 2: VERSO (CONTEÚDO PROGRAMÁTICO)
+  // ==========================================
+  const itens = Array.isArray(dados.conteudoItens) ? dados.conteudoItens : [];
 
+  if (itens.length > 0) {
+    doc.addPage("a4", "landscape");
+
+    // Reutiliza estrutura do verso
+    desenharEstruturaPagina();
+
+    // Cabeçalho da Empresa no Verso
+    setCorPreenchimento(CORES.VINHO);
+    doc.rect(15, 14, LARGURA - 30, 8, "F");
+    setCorTexto(CORES.DOURADO_CL);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text((dados.empresaRazao || "RICHARD CONSULTORIA EM SEGURANÇA DO TRABALHO").toUpperCase(), LARGURA / 2, 19.3, { align: "center" });
+
+    // Título do Verso
+    setCorTexto(CORES.TINTA);
+    doc.setFont("times", "bold");
+    doc.setFontSize(20);
+    doc.text("CONTEÚDO PROGRAMÁTICO", LARGURA / 2, 35, { align: "center" });
+
+    desenharLinhaOrnamental(39);
+
+    // Nome do Treinamento no Verso
+    setCorTexto(CORES.CINZA);
+    doc.setFont("times", "italic");
+    doc.setFontSize(11);
+    doc.text(treinoNome, LARGURA / 2, 46, { align: "center" });
+
+    // Renderização dos Itens (1 ou 2 Colunas)
+    const yInicio = 58;
+    const yLimite = 160;
+    const alturaDisponivel = yLimite - yInicio;
+
+    setCorTexto(CORES.TINTA);
+    doc.setFont("times", "normal");
+    doc.setFontSize(11);
+
+    if (itens.length <= 6) {
+      // Layout de 1 Coluna Centralizada
+      const espacamento = Math.min(15, alturaDisponivel / (itens.length + 1));
+      
+      itens.forEach((item, index) => {
+        const yPos = yInicio + (index * espacamento) + 5;
+        
+        // Bullet Dourado
+        setCorPreenchimento(CORES.DOURADO);
+        doc.circle(75, yPos - 1.2, 1.2, "F");
+
+        // Texto do Item
+        doc.text(item, 80, yPos, { maxWidth: 140 });
+      });
+    } else {
+      // Layout de 2 Colunas Equilibradas
+      const metade = Math.ceil(itens.length / 2);
+      const col1 = itens.slice(0, metade);
+      const col2 = itens.slice(metade);
+
+      const espacamento1 = Math.min(12, alturaDisponivel / (col1.length + 1));
+      const espacamento2 = Math.min(12, alturaDisponivel / (col2.length + 1));
+
+      // Coluna 1 (Esquerda)
+      col1.forEach((item, index) => {
+        const yPos = yInicio + (index * espacamento1) + 5;
+        setCorPreenchimento(CORES.DOURADO);
+        doc.circle(35, yPos - 1.2, 1.2, "F");
+        doc.text(item, 40, yPos, { maxWidth: 100 });
+      });
+
+      // Coluna 2 (Direita)
+      col2.forEach((item, index) => {
+        const yPos = yInicio + (index * espacamento2) + 5;
+        setCorPreenchimento(CORES.DOURADO);
+        doc.circle(155, yPos - 1.2, 1.2, "F");
+        doc.text(item, 160, yPos, { maxWidth: 100 });
+      });
     }
 
-  }
-
-
-  // ----------------------------------------------------------
-  // Dados participante
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(9);
-
-  doc.setTextColor(
-    TINTA
-  );
-
-  doc.text(
-    nome,
-    xPart,
-    yb + 5,
-    { align: "center" }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(8);
-
-  doc.setTextColor(
-    CINZA
-  );
-
-  doc.text(
-    "Participante",
-    xPart,
-    yb + 10,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Dados instrutor
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(9);
-
-  doc.setTextColor(
-    TINTA
-  );
-
-  doc.text(
-    "Elvio Richard Gonçalves",
-    xInstr,
-    yb + 5,
-    { align: "center" }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(8);
-
-  doc.setTextColor(
-    CINZA
-  );
-
-  doc.text(
-    "Eng. Seg. Trab. / Instrutor",
-    xInstr,
-    yb + 10,
-    { align: "center" }
-  );
-
-  doc.setFont(
-    "helvetica",
-    "italic"
-  );
-
-  doc.setFontSize(7.5);
-
-  doc.text(
-    "CREA nº 5070103113",
-    xInstr,
-    yb + 15,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Pequenos ornamentos próximos às assinaturas
-  // ----------------------------------------------------------
-
-  doc.setFillColor(
-    corBorda
-  );
-
-  doc.circle(
-    cx,
-    yb + 4,
-    1.1,
-    "F"
-  );
-
-
-  // ----------------------------------------------------------
-  // Rodapé
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(7.5);
-
-  doc.setTextColor(
-    BRANCO
-  );
-
-  doc.text(
-    "RICHARD Consultoria em Segurança do Trabalho",
-    cx,
-    H - 9.3,
-    { align: "center" }
-  );
-
-  doc.setFontSize(6.8);
-
-  doc.text(
-    "Rua Tiro ao Pombo, 402 - Freguesia do Ó - São Paulo - SP   •   Tel.: (11) 9 5826 5323",
-    cx,
-    H - 6.4,
-    { align: "center" }
-  );
-}
-
-
-// ============================================================
-// VERSO
-// ============================================================
-
-function verso(
-  doc,
-  W,
-  H,
-  d
-) {
-
-  const MX = 20;
-  const cx = W / 2;
-
-  // ----------------------------------------------------------
-  // Fundo + moldura
-  // ----------------------------------------------------------
-
-  desenharMoldura(
-    doc,
-    W,
-    H,
-    DOURADO
-  );
-
-  desenharBarras(
-    doc,
-    W,
-    H,
-    VINHO
-  );
-
-
-  // ----------------------------------------------------------
-  // Cabeçalho
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(7);
-
-  doc.setTextColor(
-    DOURADO
-  );
-
-  doc.text(
-    "RICHARD CONSULTORIA EM SEGURANÇA DO TRABALHO",
-    cx,
-    21,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Título
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "bold"
-  );
-
-  doc.setFontSize(24);
-
-  doc.setTextColor(
-    TINTA
-  );
-
-  doc.text(
-    "CONTEÚDO PROGRAMÁTICO",
-    cx,
-    37,
-    { align: "center" }
-  );
-
-  ornamentoCentral(
-    doc,
-    cx,
-    41,
-    110,
-    DOURADO
-  );
-
-
-  // ----------------------------------------------------------
-  // Subtítulo
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(9);
-
-  doc.setTextColor(
-    CINZA
-  );
-
-  doc.text(
-    d.treinamentoNome || "Capacitação Profissional",
-    cx,
-    49,
-    { align: "center" }
-  );
-
-
-  // ----------------------------------------------------------
-  // Conteúdo
-  // ----------------------------------------------------------
-
-  const itens =
-    Array.isArray(d.conteudoItens)
-      ? d.conteudoItens
-      : [];
-
-  if (!itens.length) {
-    return;
-  }
-
-
-  // Quantidade de colunas
-  let colunas = 1;
-
-  if (itens.length > 7) {
-    colunas = 2;
-  }
-
-  const areaX = MX + 15;
-  const areaW = W - (areaX * 2);
-
-  const espacamentoColuna =
-    colunas === 2
-      ? 12
-      : 0;
-
-  const colW =
-    colunas === 2
-      ? (areaW - espacamentoColuna) / 2
-      : areaW;
-
-
-  const inicioY = 58;
-
-  const meio =
-    colunas === 2
-      ? Math.ceil(itens.length / 2)
-      : itens.length;
-
-
-  let y1 = inicioY;
-  let y2 = inicioY;
-
-
-  // ----------------------------------------------------------
-  // Função de renderização do item
-  // ----------------------------------------------------------
-
-  const desenharItem = (
-    texto,
-    x,
-    y,
-    largura
-  ) => {
-
-    const bulletX =
-      x + 2;
-
-    const textoX =
-      x + 8;
-
-    const textoW =
-      largura - 8;
-
-    // Bullet
-    doc.setFillColor(
-      DOURADO
-    );
-
-    doc.circle(
-      bulletX,
-      y - 1.5,
-      1.15,
-      "F"
-    );
-
-    // Texto
-    doc.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    doc.setFontSize(10.5);
-
-    doc.setTextColor(
-      PRETO
-    );
-
-    const linhas =
-      doc.splitTextToSize(
-        String(texto || ""),
-        textoW
-      );
-
-    doc.text(
-      linhas,
-      textoX,
-      y
-    );
-
-    return (
-      linhas.length * 5.2
-    ) + 4.5;
-  };
-
-
-  // ----------------------------------------------------------
-  // Renderização dos itens
-  // ----------------------------------------------------------
-
-  itens.forEach(
-    (item, index) => {
-
-      if (
-        colunas === 2 &&
-        index >= meio
-      ) {
-
-        y2 += desenharItem(
-          item,
-          areaX + colW + espacamentoColuna,
-          y2,
-          colW
-        );
-
-      } else {
-
-        y1 += desenharItem(
-          item,
-          areaX,
-          y1,
-          colW
-        );
-
-      }
-
+    // Seção de Referências Normativas
+    if (dados.referencias) {
+      const yRef = 175;
+      setCorTexto(CORES.DOURADO);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.text("REFERÊNCIAS NORMATIVAS", LARGURA / 2, yRef, { align: "center" });
+
+      setCorTexto(CORES.CINZA);
+      doc.setFont("times", "italic");
+      doc.setFontSize(9.5);
+      doc.text(dados.referencias, LARGURA / 2, yRef + 5, { align: "center" });
     }
-  );
-
-
-  // ----------------------------------------------------------
-  // Referências normativas
-  // ----------------------------------------------------------
-
-  const yFinal =
-    Math.max(y1, y2);
-
-
-  if (d.referencias) {
-
-    const linhaY =
-      Math.min(
-        yFinal + 5,
-        H - 29
-      );
-
-    doc.setDrawColor(
-      DOURADO
-    );
-
-    doc.setLineWidth(
-      0.35
-    );
-
-    doc.line(
-      60,
-      linhaY,
-      W - 60,
-      linhaY
-    );
-
-
-    doc.setFont(
-      "helvetica",
-      "bold"
-    );
-
-    doc.setFontSize(8);
-
-    doc.setTextColor(
-      TINTA
-    );
-
-    doc.text(
-      "REFERÊNCIAS NORMATIVAS",
-      cx,
-      linhaY + 5,
-      { align: "center" }
-    );
-
-
-    doc.setFont(
-      "helvetica",
-      "italic"
-    );
-
-    doc.setFontSize(8);
-
-    doc.setTextColor(
-      CINZA
-    );
-
-    const referencias =
-      doc.splitTextToSize(
-        String(d.referencias),
-        W - 80
-      );
-
-    let refY =
-      linhaY + 10;
-
-    referencias.forEach(
-      linha => {
-
-        doc.text(
-          linha,
-          cx,
-          refY,
-          { align: "center" }
-        );
-
-        refY += 4;
-
-      }
-    );
-
   }
 
+  // Finalização e Download do Arquivo
+  const nomeArquivo = dados.numeroCertificado 
+    ? `Certificado_${dados.numeroCertificado}.pdf` 
+    : "Certificado.pdf";
 
-  // ----------------------------------------------------------
-  // Identificação do certificado
-  // ----------------------------------------------------------
-
-  if (d.nome) {
-
-    doc.setFont(
-      "helvetica",
-      "normal"
-    );
-
-    doc.setFontSize(7.5);
-
-    doc.setTextColor(
-      CINZA2
-    );
-
-    doc.text(
-      `Certificado emitido para: ${String(d.nome).toUpperCase()}`,
-      cx,
-      H - 20,
-      { align: "center" }
-    );
-
-  }
-
-
-  // ----------------------------------------------------------
-  // Rodapé
-  // ----------------------------------------------------------
-
-  doc.setFont(
-    "helvetica",
-    "normal"
-  );
-
-  doc.setFontSize(7.5);
-
-  doc.setTextColor(
-    BRANCO
-  );
-
-  doc.text(
-    "RICHARD Consultoria em Segurança do Trabalho",
-    cx,
-    H - 8.5,
-    { align: "center" }
-  );
+  doc.save(nomeArquivo);
 }
-
-
-// ============================================================
-// EXPORTAÇÃO OPCIONAL
-// ============================================================
-//
-// Mantém as funções principais disponíveis pelo módulo.
-//
-// ============================================================
-
-export {
-  frente,
-  verso
-};
