@@ -412,9 +412,10 @@ function abrirEditorNr(chave) {
       <input type="text" id="tRefs" value="${refs}" placeholder="Ex.: NR 01 e NR 06" />
     </div>
     <div class="aviso-null" style="background:#e8f4fd; border-color:#2e7d9a; color:#1a4a6a;">
-      💡 O selo da NR é carregado automaticamente pelo arquivo <strong>${
-        chave.toLowerCase().replace(/_\d+$/,'').replace(/_/g,'-')
-      }.png</strong> na pasta do sistema. Coloque o arquivo lá e ele aparece no certificado.
+      💡 O selo é carregado automaticamente de <strong>img/${
+        chave === "DIR_DEFENSIVA" ? "direcao-defensiva" :
+        chave.toLowerCase().replace(/_.*$/, "")
+      }.png</strong>. Coloque o arquivo na subpasta <strong>img/</strong> do sistema.
     </div>
     <div class="campo-ed">
       <label>Itens do conteúdo programático (verso)</label>
