@@ -28,7 +28,7 @@ export const VIGENCIAS = {
   "NR11":           { label: "NR-11 — Içamento de Carga", meses: 12, escopo: "funcionario" },
   "NR12":           { label: "NR-12 — Máquinas e Equipamentos", meses: 12, escopo: "funcionario", pedeEquipamento: true },
   "NR17":           { label: "NR-17 — Ergonomia", meses: 12, escopo: "funcionario" },
-  "NR18":           { label: "NR-18 — Construção Civil", meses: 12, escopo: "funcionario" },
+  "NR18":           { label: "NR-18 — Construção Civil", meses: 24, escopo: "funcionario" },
   "NR20":           { label: "NR-20 — Inflamáveis", meses: 12, escopo: "funcionario" },
   "NR23":           { label: "NR-23 — Brigada de Incêndio", meses: 12, escopo: "funcionario" },
   "NR33_16":        { label: "NR-33 — Espaço Confinado (16h)", meses: 12, escopo: "funcionario" },
